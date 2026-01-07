@@ -660,6 +660,24 @@ export class LocalStorageManager {
     this.saveData();
   }
 
+  /**
+   * Remove completamente os dados locais (apaga a chave no localStorage)
+   * e reinicia o objeto de dados para os defaults.
+   */
+  public clearAllLocalData(): void {
+    try {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* noop */ }
+      this.data = { ...defaultData } as ExtendedAppData;
+      // ensure settings fallback
+      this.data.settings = { ...defaultSettings };
+      try {
+        window.dispatchEvent(new CustomEvent('glowup:data-changed'));
+      } catch (e) { /* noop */ }
+    } catch (e) {
+      console.error('Failed to clear all local data', e);
+    }
+  }
+
   // Métodos para funcionalidades de estudo
   public getFlashcards(): Flashcard[] {
     return [...this.data.study.flashcards];

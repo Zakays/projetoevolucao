@@ -29,8 +29,8 @@ export default function Account() {
       const supabase = getSupabase();
       await supabase.auth.signOut();
       setUser(null);
-      // clear local user-specific data to avoid leaking between accounts
-      try { storage.clearLocalUserData(); } catch (e) { /* noop */ }
+      // completely clear local data to avoid leaking between accounts
+      try { storage.clearAllLocalData(); } catch (e) { /* noop */ }
     } catch (err) {
       console.error('Sign out failed', err);
     } finally {
