@@ -393,6 +393,12 @@ const Index = () => {
                           >
                             {getCategoryLabel(habit.category)}
                           </Badge>
+                          {habit.streak > 0 && (
+                            <Badge variant="secondary" className="text-xs ml-2 flex items-center space-x-1">
+                              <Flame className="h-3 w-3" />
+                              <span>{habit.streak}</span>
+                            </Badge>
+                          )}
                           {habit.isEssential && (
                             <Badge variant="destructive" className="text-xs">
                               Essencial
