@@ -614,11 +614,14 @@ export class LocalStorageManager {
         if ((error as any).code === 'PGRST116') return false; // not found
         throw error;
       }
-
       if (data && data.data) {
         try {
           const parsed = JSON.parse(data.data as string);
-          this.data = { ...this.data, ...parsed };
+          // Replace local data with remote user's data to ensure per-account isolation.
+          // Preserve local default settings where missing.
+          this.data = { ...defaultData, ...parsed, version: STORAGE_VERSION } as ExtendedAppData;
+          if (!this.data.settings) this.data.settings = { ...defaultSettings };
+          else this.data.settings = { ...defaultSettings, ...this.data.settings };
           this.saveData();
           return true;
         } catch (e) {
@@ -630,6 +633,25 @@ export class LocalStorageManager {
       console.error('restoreFromSupabase failed', err);
       return false;
     }
+  }
+
+  /**
+   * Clear user-specific local data (habits, completions, ai conversations, etc.).
+   * Keeps app-level defaults and settings structure.
+   */
+  public clearLocalUserData(): void {
+    this.data.habits = [];
+    this.data.habitCompletions = [];
+    this.data.monthlyCharts = [];
+    this.data.workouts = [];
+    this.data.bodyMeasurements = [];
+    this.data.journalEntries = [];
+    this.data.goals = [];
+    this.data.study = { ...defaultStudyData };
+    this.data.records = { ...defaultRecordsData };
+    this.data.finances = [];
+    this.data.aiConversations = [];
+    this.saveData();
   }
 
   // Métodos para funcionalidades de estudo
