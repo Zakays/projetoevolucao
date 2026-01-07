@@ -36,28 +36,45 @@ try {
   // Listen auth state changes to sync data
   const supabase = getSupabase();
   let currentUserId: string | null = null;
-
-  supabase.auth.onAuthStateChange(async (_event, session) => {
-    try {
-      if (session && session.user) {
-        const userId = session.user.id;
-        if (userId) {
-          currentUserId = userId;
-          await storage.restoreFromSupabase(userId);
-          console.log('Restored data for', userId);
-        }
-      } else {
-        // Signed out: backup current data
-        if (currentUserId) {
-          await storage.backupToSupabase(currentUserId);
-          console.log('Backed up data for', currentUserId);
-          currentUserId = null;
+  // Restore existing session (if any) so user stays logged after reload
+  try {
+    supabase.auth.getUser().then(async (res) => {
+      const user = res?.data?.user;
+      if (user && user.id) {
+        currentUserId = user.id;
+        try {
+          await storage.restoreFromSupabase(user.id);
+          console.log('Restored data for', user.id);
+        } catch (e) {
+          console.warn('Failed to restore on startup', e);
         }
       }
-    } catch (err) {
-      console.error('Auth sync error', err);
-    }
-  });
+    }).catch(err => console.warn('getUser error', err));
+
+    supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        if (session && session.user) {
+          const userId = session.user.id;
+          if (userId) {
+            currentUserId = userId;
+            await storage.restoreFromSupabase(userId);
+            console.log('Restored data for', userId);
+          }
+        } else {
+          // Signed out: backup current data
+          if (currentUserId) {
+            await storage.backupToSupabase(currentUserId);
+            console.log('Backed up data for', currentUserId);
+            currentUserId = null;
+          }
+        }
+      } catch (err) {
+        console.error('Auth sync error', err);
+      }
+    });
+  } catch (e) {
+    console.warn('Auth listener setup failed', e);
+  }
 } catch (e) {
   console.warn('Supabase not initialized (missing env vars?)', e);
 }

@@ -4,7 +4,7 @@ let supabase: SupabaseClient | null = null;
 
 export function initSupabase(url: string, anonKey: string) {
   if (!supabase) {
-    supabase = createClient(url, anonKey, { auth: { persistSession: false } });
+    supabase = createClient(url, anonKey, { auth: { persistSession: true } });
   }
   return supabase;
 }
