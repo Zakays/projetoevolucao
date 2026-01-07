@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Disable AI Chat — GlowUp</title>
+</head>
+<body>
+  <h2>Disable AI Chat — GlowUp</h2>
+  <p>Abra este arquivo no navegador e clique em "Desabilitar chat" para atualizar o localStorage do app.</p>
+  <button id="btn">Desabilitar chat</button>
+  <pre id="out" style="white-space:pre-wrap;margin-top:1em;color:#333"></pre>
+  <script>
+    const KEY = 'glow-up-organizer-data';
+    function safeParse(s){try{return JSON.parse(s);}catch(e){return null}}
+    document.getElementById('btn').addEventListener('click',()=>{
+      try{
+        const raw = localStorage.getItem(KEY);
+        let data = raw ? safeParse(raw) : {};
+        if (!data) data = {};
+        if (!data.settings) data.settings = {};
+        data.settings.aiChatEnabled = false;
+        localStorage.setItem(KEY, JSON.stringify(data));
+        document.getElementById('out').textContent = 'OK — aiChatEnabled definido como false em ' + KEY + '.\nAtualize a página do app.';
+        alert('Chat com IA desabilitado no localStorage. Atualize a página do app.');
+      }catch(e){
+        document.getElementById('out').textContent = 'Erro: ' + String(e);
+      }
+    });
+  </script>
+</body>
+</html>

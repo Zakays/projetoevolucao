@@ -1,0 +1,177 @@
+CODE AUDIT - resumo e sugestões
+
+Resumo geral
+------------
+Projeto: organizador_glow_up_expansao2
+Tipo: SPA React + TypeScript (Vite)
+Principais observações:
+- Arquitetura bem organizada por páginas, componentes e um `lib/storage` central.
+- Uso intenso de `localStorage` para persistência; bom para MVP, considerar IndexedDB para arquivos grandes.
+- UI consistente (componentes `ui/`), porém alguns comportamentos e validações podem ser extraídos/reutilizados.
+- Testes unitários com Vitest presentes; adicionar E2E (Playwright/Cypress) e cobertura em CI.
+- Build no Vercel falhou inicialmente por `pnpm-lock.yaml` desatualizado — lockfile foi atualizado localmente.
+
+Melhorias e correções por página (prioridade e explicação breve)
+---------------------------------------------------------------
+1) `src/pages/Index.tsx` (Dashboard)
+- Observações:
+  • Código legível; boa UX (toasts, progress, badges).
+- Melhorias:
+  • Evitar recalcular `todayFormatted`/`todayStr` em cada render (memoizar ou mover para state/useMemo).
+  • Tratar casos onde `settings.dailyMotivation` pode ser undefined (fallback). Já tratado, mas reforçar tipos.
+  • Otimizar `calculateDailyStats` para evitar loops repetidos (mapa de completions por habitId).
+  • Accessibility: adicionar atributos `aria-*` nos controles (checkbox, botões) e textos alternativos quando necessário.
+
+2) `src/pages/Vocabulary.tsx`
+- Observações:
+  • Funcionalidade completa (add, review, filtros).
+- Melhorias:
+  • Normalizar data (`lastReviewed`, `nextReviewAt`) com utilitário de datas central (evitar manipulação inline).
+  • Extrair formulários para componentes controlados com validação (yup/zod opcional).
+  • Incluir confirmação antes de marcar revisões massivas (se adicionar essa feature).
+  • Testes: adicionar testes para diálogo e fluxo de adicionar palavra.
+
+3) `src/pages/Training.tsx`
+- Observações:
+  • UI robusta para treinos, sets, séries.
+- Melhorias:
+  • Validar `parseInt/parseFloat` com fallbacks e evitar valores `NaN`.
+  • Consolidar lógica de salvamento/atualização no `storage` (já faz parte), mas extraia utilitários de formulário para reduzir complexidade da página.
+  • Considerar performance quando muitos treinos (paginação/virtualização da lista).
+  • Acessibilidade: dar labels mais descritivos e atributos `aria-label` em botões de ícone.
+
+4) `src/pages/Study.tsx`
+- Observações:
+  • Agrega várias features (Flashcards, Pomodoro, MiniQuiz, Library).
+- Melhorias:
+  • Evitar setInterval muito frequente (usa 5s) — depende de necessidade; limpar corretamente (já faz).
+  • Centralizar cálculo de stats em `lib/storage` para facilitar testes.
+  • Garantir que componentes integrados (FlashcardSystem, Pomodoro) tenham props bem definidas e boundaries para evitar re-renders desnecessários.
+
+5) `src/pages/Stats.tsx`
+- Observações:
+  • Arquivo grande e com lógica pesada de agregação.
+- Melhorias:
+  • Extrair `calculateStats` para `lib/analytics.ts` com testes unitários.
+  • Evitar operações caras em render (usar useMemo/useEffect apropriados).
+  • Validar divisão por zero e coalescer valores para exibição segura.
+
+6) `src/pages/Settings.tsx`
+- Observações:
+  • Funcionalidades sólidas (export/import, tema, notificações).
+- Melhorias:
+  • Import: adicionar validação mais robusta do JSON (schemas) e feedback detalhado de erros.
+  • Export: adicionar fallback para navegadores sem suporte (ou instruções).
+  • Aplicação de tema deveria persistir e re-aplicar sem reload; já faz, mas validar sistema dark/light quando `system` selecionado.
+
+7) `src/pages/Records.tsx`
+- Observações:
+  • Uploads/Galeria com preview — função chave.
+- Melhorias/Correções críticas:
+  • **Não usar localStorage para arquivos grandes.** Mover uploads/mídia para IndexedDB (ex: idb) ou backend; localStorage tem limite de tamanho e causa problemas de performance.
+  • Sanitizar nomes de arquivos e metadados, validar tipos MIME.
+  • Adicionar limites de tamanho e tratamento de erro (toast) para usuários.
+  • Considerar lazy loading de thumbnails e compressão no upload.
+  • Adicionar testes de upload e ações (salvar descrição, excluir).
+
+8) `src/pages/Quiz.tsx`
+- Observações:
+  • Motor básico funcional com criação/admin de perguntas.
+- Melhorias:
+  • Proteger fluxos administrativos (evitar duplicação, validações); normalizar armazenamento de perguntas.
+  • Armazenar resultados com timestamps e calcular métricas (tempo por pergunta).
+  • Evitar armazenar objetos muito grandes no `storage` em larga escala.
+
+9) `src/pages/Journal.tsx`
+- Observações:
+  • UX e fluxo bem pensados; sliders e moods úteis.
+- Melhorias:
+  • Sanitização e limite de tamanho de texto (para evitar armazenamento desnecessário).
+  • Adicionar filtros por tag/data e exportação parcial.
+
+10) `src/pages/Body.tsx`
+- Observações:
+  • Formulários completos e históricos.
+- Melhorias:
+  • Validar entradas numéricas com limites razoáveis e mensagens de erro.
+  • Oferecer gráfico de tendência (pequeno componente reutilizável).
+
+11) `src/pages/Goals.tsx`
+- Observações:
+  • Gestão de metas e marcos bem estruturada.
+- Melhorias:
+  • Recomputar progresso de metas de forma robusta (usar utilitário/testes).
+  • Melhorar ordenação e filtro com memorização.
+
+Sugestões transversais / melhorias de infraestrutura
+---------------------------------------------------
+- Dependências & CI
+  • Assegurar `pnpm` versão consistente em CI (usar corepack + .pnpmfile ou engines), já atualizei o lockfile localmente; confirme push.
+  • Adicionar job CI (lint, typecheck, vitest) e garantir caching de pnpm.
+- Testes
+  • Aumentar cobertura: unit tests para utilitários em `lib/`, e E2E com Playwright (fluxos críticos: upload, export/import, login se houver).
+- Performance
+  • Mover arquivos e blobs para IndexedDB ou backend; usar thumbnails e compressão.
+  • Paginação/virtualização em listas grandes (workouts, entries, gallery).
+- Segurança
+  • Sanitizar entradas de usuário (uploads, JSON importado, campos de texto).
+  • Evitar exposição de dados sensíveis em logs.
+- Acessibilidade (A11Y)
+  • Verificar contraste, tab order, aria-labels nos botões de ícone, descrições para inputs e imagens.
+- Código & Arquitetura
+  • Extrair lógica pesada para `lib/` com testes (ex: estatísticas, cálculo de progresso).
+  • Consolidar validações com schema (zod/yup) nas entradas de formulários.
+  • Centralizar internacionalização/pluralização (i18n) se planejar multi-idioma.
+
+Prioridade recomendada (curto/médio/longo prazo)
+-------------------------------------------------
+- Curto: corrigir uso de localStorage para arquivos (Records), atualizar/commitar lockfile (feito), adicionar validações em formulários críticos.
+- Médio: extrair lógica pesada para `lib/`, adicionar testes unitários e E2E, melhorar import/export com validação.
+- Longo: suporte a backend para armazenamento de mídia/opção de sync, dashboards avançados e features IA (planejado no produto).
+
+Próximos passos que eu posso executar (me diga qual prefere)
+------------------------------------------------------------
+- Gerar `CODE_AUDIT.txt` (feito) e abrir PR automático com commit (se desejar que eu faça push/PR).
+- Implementar correções pequenas (ex: validação de formulários, adicionar aria-labels).
+- Implementar testes unitários para utilitários (`lib/analytics`, `lib/storage`), ou E2E básicos.
+
+Fim do relatório. Se quiser, eu adiciono checklist interno por arquivo com prioridade e estimativa de esforço.
+
+VALIDATION OF SUGGESTIONS
+-------------------------
+Summary: I cross-checked each recommendation against the repository. Most suggestions are correct and actionable; a few are lower priority or already partially handled in code.
+
+Per-page verification (short):
+1) `src/pages/Index.tsx` — ✅ Correct (memoization/date calc is a minor perf improvement; fallback for `dailyMotivation` is already provided by `defaultSettings` in `src/lib/storage.ts`). Accessibility (aria labels) should be improved for icon-only buttons.
+
+2) `src/pages/Vocabulary.tsx` — ✅ Correct (dates are handled by `formatDate`/`formatDateTime` in `storage.ts`; centralizing date logic is a good clarity/testability improvement). Tests for dialog flows are missing and recommended.
+
+3) `src/pages/Training.tsx` — ✅ Correct (parseInt/parseFloat fallbacks used but validations could be stronger; consider extracting form utilities and adding pagination/virtualization for large lists).
+
+4) `src/pages/Study.tsx` — ✅ Correct (5s interval exists and is cleared; centralizing stats in `lib/storage` or `lib/analytics` improves testability and reduces re-renders).
+
+5) `src/pages/Stats.tsx` — ✅ Correct (heavy aggregation lives inside component — extracting to `lib/analytics` and unit-testing it is recommended).
+
+6) `src/pages/Settings.tsx` — ✅ Correct (import/export uses `storage.importData` which lacks schema validation; adding schema checks and better error messages is recommended).
+
+7) `src/pages/Records.tsx` — ✅ Critical and correct (currently `UploadedFile.previewUrl` / uploads are stored in `localStorage` via `storage.addUploadedFile` — this is risky for large files; recommend IndexedDB or backend + thumbnails/compression and size limits).
+
+8) `src/pages/Quiz.tsx` — ✅ Correct (admin flows are basic; add stronger validation, store timestamps for results; avoid unlimited growth in localStorage).
+
+9) `src/pages/Journal.tsx` — ✅ Correct (sanitization/limits and filters would be useful; export partial data can be added).
+
+10) `src/pages/Body.tsx` — ✅ Correct (add numeric input validation and optional trend chart component).
+
+11) `src/pages/Goals.tsx` — ✅ Correct (progress recomputation exists but should be encapsulated and unit-tested; ordering/filtering can be memoized).
+
+Cross-cutting (infra, tests, security, perf, a11y):
+- pnpm/lockfile: ✅ Resolved locally (you already updated `pnpm-lock.yaml`); ensure consistent pnpm in CI or set install command to `--no-frozen-lockfile` as a temporary workaround.
+- Tests/CI: ✅ Good unit test coverage exists for many modules; adding E2E is recommended.
+- Performance: ✅ Storing blobs in localStorage is the main risk (Records) — needs priority attention.
+- Security/A11Y: ✅ Recommendations are valid (sanitization, aria labels, contrast, logs).
+
+If you'd like, I can now:
+- Mark each suggestion in `CODE_AUDIT.txt` with estimated effort (quick/medium/large), or
+- Start implementing high-priority fixes (e.g., move file previews to IndexedDB or add schema validation for import).
+
+End of validation.
