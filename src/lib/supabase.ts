@@ -4,7 +4,8 @@ let supabase: SupabaseClient | null = null;
 
 export function initSupabase(url: string, anonKey: string) {
   if (!supabase) {
-    supabase = createClient(url, anonKey, { auth: { persistSession: true } });
+    const storageOption = typeof window !== 'undefined' ? window.localStorage : undefined;
+    supabase = createClient(url, anonKey, { auth: { persistSession: true, storage: storageOption, detectSessionInUrl: true } });
   }
   return supabase;
 }

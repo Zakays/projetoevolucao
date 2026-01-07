@@ -36,10 +36,29 @@ try {
   // Listen auth state changes to sync data
   const supabase = getSupabase();
   let currentUserId: string | null = null;
+  // expose supabase client for debugging in console
+  try { (window as any).__supabase = supabase; } catch (e) { /* noop */ }
+  try { console.log('DEBUG: VITE_SUPABASE_URL=', import.meta.env.VITE_SUPABASE_URL); } catch (e) { /* noop */ }
+  (async () => {
+    try {
+      const s = await supabase.auth.getSession();
+      console.log('DEBUG: supabase.auth.getSession() ->', s);
+    } catch (e) {
+      console.warn('DEBUG: getSession() error', e);
+    }
+    try {
+      const keys = Object.keys(localStorage).filter(k => /supabase|sb-|supabase.auth/i.test(k));
+      console.log('DEBUG: supabase-related localStorage keys', keys);
+      if (keys.length) {
+        try { console.log('DEBUG: token parse:', JSON.parse(localStorage.getItem(keys[0]) || 'null')); } catch (e) { console.warn('DEBUG: token parse error', e); }
+      }
+    } catch (e) { /* noop */ }
+  })();
   // Restore existing session (if any) so user stays logged after reload
   try {
-    supabase.auth.getUser().then(async (res) => {
-      const user = res?.data?.user;
+    supabase.auth.getSession().then(async (res) => {
+      const session = res?.data?.session;
+      const user = session?.user;
       if (user && user.id) {
         currentUserId = user.id;
         try {
@@ -48,8 +67,36 @@ try {
         } catch (e) {
           console.warn('Failed to restore on startup', e);
         }
+      } else {
+        // no session: try to recover using stored token object (refresh_token)
+        try {
+          const key = Object.keys(localStorage).find(k => /supabase|sb-|supabase.auth/i.test(k));
+          if (key) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                const refresh = parsed?.refresh_token || parsed?.currentSession?.refresh_token || parsed?.refreshToken;
+                if (refresh) {
+                  console.log('Attempting to restore session from stored refresh_token...');
+                  try {
+                    const setRes = await supabase.auth.setSession({ refresh_token: refresh });
+                    console.log('setSession result', setRes);
+                    const restoredUser = setRes?.data?.session?.user;
+                    if (restoredUser && restoredUser.id) {
+                      currentUserId = restoredUser.id;
+                      try { await storage.restoreFromSupabase(restoredUser.id); } catch (e) { console.warn('restore after setSession failed', e); }
+                    }
+                  } catch (e) {
+                    console.warn('setSession failed', e);
+                  }
+                }
+              } catch (e) { /* parse error */ }
+            }
+          }
+        } catch (e) { /* noop */ }
       }
-    }).catch(err => console.warn('getUser error', err));
+    }).catch(err => console.warn('getSession error', err));
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
       try {

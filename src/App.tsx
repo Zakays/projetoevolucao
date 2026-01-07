@@ -20,6 +20,8 @@ import Settings from "./pages/Settings";
 import Instrutor from "./pages/Instrutor";
 import NotFound from "./pages/NotFound";
 import Auth from "./components/Auth";
+import AuthGate from "./components/AuthGate";
+import Logout from "./pages/Logout";
 
 const queryClient = new QueryClient();
 
@@ -29,26 +31,29 @@ const App = () => (
       <Toaster />
       <Sonner />
       <HashRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/habits" element={<Habits />} />
-          <Route path="/training" element={<Training />} />
-          <Route path="/body" element={<Body />} />
-          <Route path="/journal" element={<Journal />} />
-          <Route path="/goals" element={<Goals />} />
-          <Route path="/stats" element={<Stats />} />
-          <Route path="/study" element={<Study />} />
-          <Route path="/quiz" element={<Quiz />} />
-          <Route path="/vocabulary" element={<Vocabulary />} />
-          <Route path="/records" element={<Records />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/login" element={<Auth />} />
-          <Route path="/instrutor" element={<Instrutor />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthGate>
+          <Routes>
+            <Route path="/login" element={<Auth />} />
+            <Route path="/logout" element={<Logout />} />
+            <Route path="/instrutor" element={<Instrutor />} />
+            <Route path="/" element={<Index />} />
+            <Route path="/habits" element={<Habits />} />
+            <Route path="/training" element={<Training />} />
+            <Route path="/body" element={<Body />} />
+            <Route path="/journal" element={<Journal />} />
+            <Route path="/goals" element={<Goals />} />
+            <Route path="/stats" element={<Stats />} />
+            <Route path="/study" element={<Study />} />
+            <Route path="/quiz" element={<Quiz />} />
+            <Route path="/vocabulary" element={<Vocabulary />} />
+            <Route path="/records" element={<Records />} />
+            <Route path="/courses" element={<Courses />} />
+            <Route path="/finance" element={<Finance />} />
+            <Route path="/settings" element={<Settings />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthGate>
       </HashRouter>
     </TooltipProvider>
   </QueryClientProvider>
