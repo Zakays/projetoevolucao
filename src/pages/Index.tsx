@@ -33,6 +33,7 @@ const Index = () => {
   const [dailyMotivation, setDailyMotivation] = useState('');
   const [isEditingMotivation, setIsEditingMotivation] = useState(false);
   const [tempMotivation, setTempMotivation] = useState('');
+  const [settings, setSettings] = useState(() => storage.getSettings());
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -58,6 +59,7 @@ const Index = () => {
     setDailyStats(stats);
     setDailyMotivation(settings.dailyMotivation);
     setTempMotivation(settings.dailyMotivation);
+    setSettings(settings);
 
     // Try to auto-generate daily motivation if needed (runs async, non-blocking)
     generateDailyMotivationIfNeeded();
@@ -244,9 +246,11 @@ const Index = () => {
         </Card>
 
         {/* AI Chat - Full Width (container only; AIChat renders its own Card) */}
-        <div className="h-[34rem] mb-20">
-          <AIChat />
-        </div>
+        {settings?.aiChatEnabled && (
+          <div className="h-[34rem] mb-20">
+            <AIChat />
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="pt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
