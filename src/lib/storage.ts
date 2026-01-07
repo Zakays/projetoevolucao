@@ -11,6 +11,7 @@ import { saveUploadBlob, getUploadBlob, deleteUploadBlob } from '@/lib/idb';
 
 // lightweight import for importData validation
 import { ExtendedAppDataSchema } from '@/lib/schemas';
+import { initSupabase, getSupabase } from './supabase';
 
 const STORAGE_KEY = 'glow-up-organizer-data';
 const STORAGE_VERSION = '1.0.0';
@@ -585,6 +586,49 @@ export class LocalStorageManager {
       }, 0);
     } catch (e) {
       // noop - environments without window might throw
+    }
+  }
+
+  /* Remote sync helpers (Supabase)
+   * Usage: call initSupabase(SUPABASE_URL, SUPABASE_ANON_KEY) once on app startup
+   */
+  public async backupToSupabase(userId: string): Promise<boolean> {
+    try {
+      const supabase = getSupabase();
+      const payload = { user_id: userId, data: JSON.stringify(this.data), updated_at: new Date().toISOString() };
+
+      const { error } = await supabase.from('app_data').upsert(payload, { onConflict: 'user_id' });
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('backupToSupabase failed', err);
+      return false;
+    }
+  }
+
+  public async restoreFromSupabase(userId: string): Promise<boolean> {
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.from('app_data').select('data').eq('user_id', userId).single();
+      if (error) {
+        if ((error as any).code === 'PGRST116') return false; // not found
+        throw error;
+      }
+
+      if (data && data.data) {
+        try {
+          const parsed = JSON.parse(data.data as string);
+          this.data = { ...this.data, ...parsed };
+          this.saveData();
+          return true;
+        } catch (e) {
+          console.error('Failed parsing backup data', e);
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error('restoreFromSupabase failed', err);
+      return false;
     }
   }
 
