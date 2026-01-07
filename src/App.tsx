@@ -19,6 +19,7 @@ import Finance from "./pages/Finance";
 import Settings from "./pages/Settings";
 import Instrutor from "./pages/Instrutor";
 import NotFound from "./pages/NotFound";
+import Auth from "./components/Auth";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
           <Route path="/courses" element={<Courses />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/login" element={<Auth />} />
           <Route path="/instrutor" element={<Instrutor />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
