@@ -19,6 +19,7 @@ import {
   X,
   Sparkles
 } from 'lucide-react';
+import Account from './Account';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -121,14 +122,11 @@ export function Navigation() {
 
           {/* Footer */}
           <div className={'p-4 border-t'}>
-            <div className={'text-center'}>
-              <p className={'text-xs text-muted-foreground mb-2'}>
-                Versao 1.0.0
-              </p>
+            <div className={'text-center space-y-2'}>
+              <p className={'text-xs text-muted-foreground'}>Versao 1.0.0</p>
+              <Account />
               <div className={'gradient-glow rounded-lg p-3'}>
-                <p className={'text-xs text-white font-medium'}>
-                  🎯 Meta 2026: Glow Up Completo
-                </p>
+                <p className={'text-xs text-white font-medium'}>🎯 Meta 2026: Glow Up Completo</p>
               </div>
             </div>
           </div>
