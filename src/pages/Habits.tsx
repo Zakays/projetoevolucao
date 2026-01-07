@@ -12,6 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { storage } from '@/lib/storage';
+import { getSupabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
 import { Habit, HabitCompletion } from '@/types';
 import { toast } from 'sonner';
 import { playClick, playSuccess } from '@/lib/sound';
@@ -89,7 +91,9 @@ const Habits = () => {
     setHabitCompletions(completions);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name.trim()) {
@@ -108,6 +112,14 @@ const Habits = () => {
     }
 
     try {
+      const supabase = getSupabase();
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) {
+        toast.error('Você precisa entrar para criar ou editar hábitos.');
+        navigate('/login');
+        return;
+      }
+
       if (editingHabit) {
         storage.updateHabit(editingHabit.id, {
           name: formData.name.trim(),
@@ -153,13 +165,27 @@ const Habits = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (habitId: string) => {
+  const handleDelete = async (habitId: string) => {
+    const supabase = getSupabase();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      toast.error('Você precisa entrar para excluir hábitos.');
+      navigate('/login');
+      return;
+    }
     storage.deleteHabit(habitId);
     toast.success('Hábito excluído com sucesso!');
     loadHabits();
   };
 
-  const toggleHabit = (habitId: string) => {
+  const toggleHabit = async (habitId: string) => {
+    const supabase = getSupabase();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      toast.error('Você precisa entrar para marcar hábitos.');
+      navigate('/login');
+      return;
+    }
     const completion = habitCompletions.find(c => c.habitId === habitId);
     const newStatus = completion?.status === 'completed' ? 'not_completed' : 'completed';
     
