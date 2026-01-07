@@ -46,6 +46,9 @@ const Index = () => {
 
   useEffect(() => {
     loadDashboardData();
+    const onDataChanged = () => loadDashboardData();
+    window.addEventListener('glowup:data-changed', onDataChanged);
+    return () => window.removeEventListener('glowup:data-changed', onDataChanged);
   }, []);
 
   const loadDashboardData = () => {

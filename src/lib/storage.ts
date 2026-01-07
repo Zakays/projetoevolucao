@@ -205,6 +205,12 @@ export class LocalStorageManager {
     try {
       this.data.lastUpdated = new Date().toISOString();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      try {
+        // Notify UI about data change so components can refresh
+        window.dispatchEvent(new CustomEvent('glowup:data-changed'));
+      } catch (e) {
+        // noop in non-window environments
+      }
     } catch (error) {
       console.error('Erro ao salvar dados:', error);
     }
