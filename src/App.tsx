@@ -19,9 +19,8 @@ import Finance from "./pages/Finance";
 import Settings from "./pages/Settings";
 import Instrutor from "./pages/Instrutor";
 import NotFound from "./pages/NotFound";
-import Auth from "./components/Auth";
+import Login from "./pages/Login";
 import AuthGate from "./components/AuthGate";
-import Logout from "./pages/Logout";
 
 const queryClient = new QueryClient();
 
@@ -33,8 +32,7 @@ const App = () => (
       <HashRouter>
         <AuthGate>
           <Routes>
-            <Route path="/login" element={<Auth />} />
-            <Route path="/logout" element={<Logout />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/instrutor" element={<Instrutor />} />
             <Route path="/" element={<Index />} />
             <Route path="/habits" element={<Habits />} />
