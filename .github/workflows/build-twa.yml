@@ -45,9 +45,20 @@ jobs:
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Initialize TWA project
+      - name: Check manifest & dist
         run: |
-          bubblewrap init --manifest "http://127.0.0.1:5173/manifest.webmanifest" --output "twa/output" --yes
+          echo "--- curl manifest (verbose) ---"
+          curl -v --max-time 10 http://127.0.0.1:5173/manifest.webmanifest || true
+          echo "--- curl manifest headers ---"
+          curl -I --max-time 10 http://127.0.0.1:5173/manifest.webmanifest || true
+          echo "--- list dist ---"
+          ls -la dist || true
+          echo "--- head dist/manifest.webmanifest (if exists) ---"
+          if [ -f dist/manifest.webmanifest ]; then head -n 200 dist/manifest.webmanifest || true; fi
+
+      - name: Initialize TWA project (debug)
+        run: |
+          bubblewrap init --manifest "http://127.0.0.1:5173/manifest.webmanifest" --output "twa/output" --yes --log-level debug
 
       - name: Build APK (Gradle)
         run: |
