@@ -229,7 +229,8 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.svg','favicon.ico','robots.txt','placeholder.svg','icon-192.png','icon-512.png'],
+        // include an explicit offline fallback page
+        includeAssets: ['favicon.svg','favicon.ico','robots.txt','placeholder.svg','icon-192.png','icon-512.png','offline.html'],
         manifest: {
           name: 'GlowUp Organizer',
           short_name: 'GlowUp',
@@ -244,6 +245,10 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
+          // fallback to the app shell (index) when navigation requests fail (offline)
+          navigateFallback: '/',
+          // don't treat API requests as navigation fallbacks
+          navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
               urlPattern: /\/api\/.*$/i,
