@@ -6,6 +6,7 @@ export interface Question {
   question: string;
   options: string[];
   answerIndex: number;
+  explanation?: string;
 }
 
 const defaultQuestions: Question[] = [
@@ -74,8 +75,18 @@ const MiniQuiz: React.FC<MiniQuizProps> = ({ questions = defaultQuestions, maxQu
   const finish = () => {
     setCompleted(true);
     setStarted(false);
-    // persist result to storage
-    storage.addQuizResult({ score, totalQuestions: quizQuestions.length, correctAnswers: score, timeSpent: elapsed, category, difficulty: difficulty === 'any' ? 'medium' : difficulty, questions: quizQuestions, userAnswers });
+    // persist result to storage (map our local Question -> QuizQuestion shape expected by storage)
+    const mappedQuestions = quizQuestions.map(q => ({
+      id: q.id,
+      question: q.question,
+      options: q.options,
+      correctAnswer: q.answerIndex,
+      category,
+      difficulty: difficulty === 'any' ? 'medium' : difficulty,
+      explanation: (q as any).explanation,
+      tags: [],
+    }));
+    storage.addQuizResult({ score, totalQuestions: quizQuestions.length, correctAnswers: score, timeSpent: elapsed, category, difficulty: difficulty === 'any' ? 'medium' : difficulty, questions: mappedQuestions as any, userAnswers });
   };
 
   const selectOption = (idx: number) => {

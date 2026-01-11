@@ -21,7 +21,9 @@ describe('Midnight reset / daily stats', () => {
     const habit = storage.addHabit({
       name: 'Daily walk',
       daysOfWeek: [weekday],
-      weight: 5,
+      weight: 3,
+      category: 'saude',
+      isEssential: false,
     });
 
     // Complete habit on Jan 1
@@ -43,7 +45,7 @@ describe('Midnight reset / daily stats', () => {
     expect(stats).not.toBeNull();
     expect(stats?.totalHabits).toBe(1);
     expect(stats?.completedHabits).toBe(1);
-    expect(stats?.earnedPoints).toBe(5);
+    expect(stats?.earnedPoints).toBe(3);
     expect(stats?.percentage).toBe(100);
 
     const chart = storage.getMonthlyChart('2026-01');

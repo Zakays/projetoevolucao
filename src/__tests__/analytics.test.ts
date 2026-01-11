@@ -14,9 +14,9 @@ describe('computeRecordsStats', () => {
 
   it('counts unique days and milestones and computes percent', () => {
     const files: UploadedFile[] = [
-      { id: '1', filename: 'a.jpg', previewUrl: '', size: 100, type: 'image/jpeg', tags: [], category: 'uploads', uploadDate: '2026-01-01T10:00:00Z' },
-      { id: '2', filename: 'b.jpg', previewUrl: '', size: 120, type: 'image/jpeg', tags: [], category: 'before-after', uploadDate: '2026-01-01T12:00:00Z' },
-      { id: '3', filename: 'c.jpg', previewUrl: '', size: 130, type: 'image/jpeg', tags: [], category: 'marco-especial', uploadDate: '2026-01-02T09:00:00Z' },
+      { id: '1', filename: 'a.jpg', originalName: 'a.jpg', previewUrl: '', size: 100, type: 'image/jpeg', tags: [], category: 'uploads', uploadDate: '2026-01-01T10:00:00Z' },
+      { id: '2', filename: 'b.jpg', originalName: 'b.jpg', previewUrl: '', size: 120, type: 'image/jpeg', tags: [], category: 'before-after', uploadDate: '2026-01-01T12:00:00Z' },
+      { id: '3', filename: 'c.jpg', originalName: 'c.jpg', previewUrl: '', size: 130, type: 'image/jpeg', tags: [], category: 'marco-especial', uploadDate: '2026-01-02T09:00:00Z' },
     ];
 
     const stats = computeRecordsStats(files);

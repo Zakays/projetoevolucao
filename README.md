@@ -84,6 +84,12 @@ npm run build
 npm run preview  # preview local
 ```
 
+**PWA (opcional):**
+- Para habilitar o PWA instalável, instale o plugin: `npm install vite-plugin-pwa --save-dev`.
+- Eu adicionei a configuração do plugin no `vite.config.ts` (registro automático de SW - `autoUpdate`). Para testes locais, rode `npm run build` e `npm run preview`, abra no Chrome (desktop ou mobile) e verifique a opção "Install" ou "Add to Home screen".
+- Substitua os ícones em `public/` por PNGs 192x192 e 512x512 para melhor compatibilidade em Android/Play Store.
+
+
 ---
 
 ## 📂 Estrutura do Projeto

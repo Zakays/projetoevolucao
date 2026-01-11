@@ -17,9 +17,11 @@ import Records from "./pages/Records";
 import Courses from "./pages/Courses";
 import Finance from "./pages/Finance";
 import Settings from "./pages/Settings";
+import Vices from "./pages/Vices";
 import Instrutor from "./pages/Instrutor";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import DebugAuth from "./pages/DebugAuth";
 import AuthGate from "./components/AuthGate";
 
 const queryClient = new QueryClient();
@@ -33,6 +35,7 @@ const App = () => (
         <AuthGate>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/debug-auth" element={<DebugAuth />} />
             <Route path="/instrutor" element={<Instrutor />} />
             <Route path="/" element={<Index />} />
             <Route path="/habits" element={<Habits />} />
@@ -47,6 +50,7 @@ const App = () => (
             <Route path="/records" element={<Records />} />
             <Route path="/courses" element={<Courses />} />
             <Route path="/finance" element={<Finance />} />
+            <Route path="/vices" element={<Vices />} />
             <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

@@ -2,8 +2,8 @@ import {
   AppData, Habit, HabitCompletion, DailyStats, MonthlyChart, UserSettings,
   StudyData, RecordsData, ExtendedAppData, Flashcard, QuizResult, Book,
   VocabularyWord, Course, StudyNote, PomodoroSession, InspirationQuote,
-  UploadedFile, PhotoGallery, ProgressComparison, CommunityPost,
-  BodyMeasurement, QuizQuestion, JournalEntry, AIMessage
+  UploadedFile, PhotoGallery, ProgressComparison, CommunityPost, FinancialEntry,
+  BodyMeasurement, QuizQuestion, JournalEntry, AIMessage, Vice, ViceCompletion
 } from '@/types';
 
 // IndexedDB helpers for storing file blobs
@@ -12,6 +12,7 @@ import { saveUploadBlob, getUploadBlob, deleteUploadBlob } from '@/lib/idb';
 // lightweight import for importData validation
 import { ExtendedAppDataSchema } from '@/lib/schemas';
 import { initSupabase, getSupabase } from './supabase';
+import { saveData as saveDataRemote, loadData as loadDataRemote } from './persistence';
 
 const STORAGE_KEY = 'glow-up-organizer-data';
 const STORAGE_VERSION = '1.0.0';
@@ -85,6 +86,9 @@ const defaultData: ExtendedAppData = {
   records: defaultRecordsData,
   finances: [],
   aiConversations: [],
+  // Vices feature
+  vices: [],
+  viceCompletions: [],
 };
 
 // Utilitários de data
@@ -127,6 +131,22 @@ export class LocalStorageManager {
 
     // run async migrations (non-blocking)
     this.runMigrations();
+
+    // Attempt to restore data from remote Supabase (single-user) — do not block constructor
+    // This will silently fallback to local data if the backend is not available
+    this.loadFromRemote();
+
+    // initialize sync queue and listeners
+    try { this.loadSyncQueue(); } catch (e) { /* noop */ }
+    try {
+      // Process queue shortly after startup if online
+      setTimeout(() => { try { this.processSyncQueue().catch(() => {}); } catch (e) {} }, 500);
+      if (typeof window !== 'undefined') {
+        window.addEventListener('online', () => { try { this.processSyncQueue().catch(() => {}); this.pullFromServer().catch(() => {}); } catch (e) {} });
+      }
+    } catch (e) {
+      // noop
+    }
   }
 
   public static getInstance(): LocalStorageManager {
@@ -135,6 +155,9 @@ export class LocalStorageManager {
     }
     return LocalStorageManager.instance;
   }
+
+  // Public accessor for tests and debug (implemented later to return a shallow copy)
+  // (removed duplicate implementation)
 
   private loadData(): ExtendedAppData {
     try {
@@ -201,6 +224,169 @@ export class LocalStorageManager {
     return new Blob([u8], { type: mime });
   }
 
+  // --- Sync queue implementation (offline-first) ---
+  // Simple mutation queue persisted to localStorage. We enqueue a "snapshot"
+  // of the latest app data (coalesced) and attempt to push it to the server
+  // when online. This keeps the implementation minimal while enabling
+  // reliable offline writes (habits, completions, etc.).
+
+  private SYNC_QUEUE_KEY = STORAGE_KEY + ':syncQueue';
+
+  private syncQueue: Array<{ id: string; type: 'snapshot'; payload: any; retries: number; status: 'pending' | 'in-flight' | 'failed' | 'done'; createdAt: string }> = [];
+  private processingSync = false;
+
+  private loadSyncQueue(): void {
+    try {
+      const raw = localStorage.getItem(this.SYNC_QUEUE_KEY);
+      if (!raw) {
+        this.syncQueue = [];
+        return;
+      }
+      this.syncQueue = JSON.parse(raw);
+    } catch (err) {
+      this.syncQueue = [];
+    }
+  }
+
+  private saveSyncQueue(): void {
+    try {
+      localStorage.setItem(this.SYNC_QUEUE_KEY, JSON.stringify(this.syncQueue));
+      try {
+        window.dispatchEvent(new CustomEvent('glowup:sync-status', { detail: { status: this.getSyncStatus(), queueLength: this.syncQueue.length } }));
+      } catch (e) { /* noop */ }
+    } catch (err) {
+      console.error('Failed to persist sync queue', err);
+    }
+  }
+
+  private enqueueSnapshot(): void {
+    const op = {
+      id: generateId(),
+      type: 'snapshot' as const,
+      payload: { data: { ...this.data }, createdAt: new Date().toISOString() },
+      retries: 0,
+      status: 'pending' as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Coalesce: if there's already a pending snapshot, replace it with the new one
+    const existingIndex = this.syncQueue.findIndex(q => q.type === 'snapshot' && q.status === 'pending');
+    if (existingIndex !== -1) {
+      this.syncQueue[existingIndex] = op;
+    } else {
+      this.syncQueue.push(op);
+    }
+    this.saveSyncQueue();
+  }
+
+  public getSyncQueue(): any[] {
+    return [...this.syncQueue];
+  }
+
+  private getSyncStatus(): 'idle' | 'pending' | 'syncing' | 'failed' {
+    if (this.syncQueue.length === 0) return 'idle';
+    if (this.syncQueue.some(q => q.status === 'in-flight')) return 'syncing';
+    if (this.syncQueue.some(q => q.status === 'failed')) return 'failed';
+    return 'pending';
+  }
+
+  public async processSyncQueue(): Promise<void> {
+    if (this.processingSync) return;
+    this.processingSync = true;
+    try {
+      this.loadSyncQueue();
+
+      if (this.syncQueue.length === 0) return;
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return; // wait until online
+
+      // Process in FIFO order
+      while (this.syncQueue.length > 0) {
+        const op = this.syncQueue[0];
+        if (!op) break;
+
+        // Ensure we're online
+        if (typeof navigator !== 'undefined' && !navigator.onLine) break;
+
+        op.status = 'in-flight';
+        this.saveSyncQueue();
+
+        try {
+          if (op.type === 'snapshot') {
+            const success = await saveDataRemote(STORAGE_KEY, op.payload.data);
+            if (success) {
+              // remove op
+              this.syncQueue.shift();
+            } else {
+              // remote save failed (likely network) — retry later
+              op.retries = (op.retries || 0) + 1;
+              op.status = op.retries >= 3 ? 'failed' : 'pending';
+
+              // push to end if still pending to avoid tight loops
+              this.syncQueue.shift();
+              if (op.status === 'pending') this.syncQueue.push(op);
+            }
+          }
+        } catch (err) {
+          // On exception, increment retries and push to end
+          op.retries = (op.retries || 0) + 1;
+          op.status = op.retries >= 3 ? 'failed' : 'pending';
+          this.syncQueue.shift();
+          if (op.status === 'pending') this.syncQueue.push(op);
+        }
+
+        this.saveSyncQueue();
+
+        // Small delay between attempts to avoid flooding
+        await new Promise(res => setTimeout(res, 200));
+      }
+    } finally {
+      this.processingSync = false;
+      this.saveSyncQueue();
+    }
+  }
+
+  public async forceSyncNow(): Promise<void> {
+    // Helper to force sync immediately (used by UI/tests)
+    await this.processSyncQueue();
+  }
+
+  /**
+   * Pull data from remote storage and merge/replace local data.
+   * If `force` is true, remote data replaces local data unconditionally.
+   * Otherwise, remote data will replace local data only when remote.lastUpdated is newer.
+   */
+  public async pullFromServer(force = false): Promise<boolean> {
+    try {
+      const remote = await loadDataRemote(STORAGE_KEY);
+      if (!remote || typeof remote !== 'object') return false;
+
+      // If force => replace unconditionally
+      if (force) {
+        this.data = { ...defaultData, ...remote, version: STORAGE_VERSION } as ExtendedAppData;
+        if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
+        if (remote.records) this.data.records = { ...defaultRecordsData, ...remote.records };
+        this.saveData();
+        return true;
+      }
+
+      // Conservative replace: if remote lastUpdated is newer, replace local
+      const remoteUpdated = remote && remote.lastUpdated ? new Date(remote.lastUpdated).getTime() : 0;
+      const localUpdated = this.data && this.data.lastUpdated ? new Date(this.data.lastUpdated).getTime() : 0;
+      if (remoteUpdated > localUpdated) {
+        this.data = { ...defaultData, ...remote, version: STORAGE_VERSION } as ExtendedAppData;
+        if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
+        if (remote.records) this.data.records = { ...defaultRecordsData, ...remote.records };
+        this.saveData();
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error('pullFromServer failed', err);
+      return false;
+    }
+  }
+
   private saveData(): void {
     try {
       this.data.lastUpdated = new Date().toISOString();
@@ -210,6 +396,22 @@ export class LocalStorageManager {
         window.dispatchEvent(new CustomEvent('glowup:data-changed'));
       } catch (e) {
         // noop in non-window environments
+      }
+
+      // Enqueue a snapshot for remote sync (coalesced)
+      try {
+        this.enqueueSnapshot();
+      } catch (e) {
+        // ignore enqueue failures
+      }
+
+      // If we're online, attempt to process the queue immediately (non-blocking)
+      try {
+        if (typeof navigator === 'undefined' || navigator.onLine) {
+          this.processSyncQueue().catch(() => {});
+        }
+      } catch (e) {
+        // ignore
       }
     } catch (error) {
       console.error('Erro ao salvar dados:', error);
@@ -230,6 +432,133 @@ export class LocalStorageManager {
   public setAIConversations(messages: AIMessage[]): void {
     this.data.aiConversations = messages.map(m => ({ ...m, createdAt: m.createdAt || new Date().toISOString() }));
     this.saveData();
+  }
+
+  // Vices: manage vices and per-day completions
+  public getVices(): Vice[] {
+    return this.data.vices ? [...this.data.vices] : [];
+  }
+
+  public addVice(vice: Omit<Vice, 'id' | 'createdAt' | 'streak'>): Vice {
+    const newVice: Vice = {
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+      streak: 0,
+      ...vice,
+    } as Vice;
+    if (!this.data.vices) this.data.vices = [];
+    this.data.vices.push(newVice);
+    this.saveData();
+    return newVice;
+  }
+
+  public updateVice(id: string, updates: Partial<Vice>): boolean {
+    if (!this.data.vices) return false;
+    const idx = this.data.vices.findIndex(v => v.id === id);
+    if (idx === -1) return false;
+    this.data.vices[idx] = { ...this.data.vices[idx], ...updates };
+    this.saveData();
+    return true;
+  }
+
+  public deleteVice(id: string): boolean {
+    if (!this.data.vices) return false;
+    const before = this.data.vices.length;
+    this.data.vices = this.data.vices.filter(v => v.id !== id);
+    if (this.data.viceCompletions) {
+      this.data.viceCompletions = this.data.viceCompletions.filter(c => c.viceId !== id);
+    }
+    this.saveData();
+    return this.data.vices.length < before;
+  }
+
+  public getViceCompletions(viceId?: string): ViceCompletion[] {
+    if (!this.data.viceCompletions) return [];
+    return viceId ? this.data.viceCompletions.filter(c => c.viceId === viceId) : [...this.data.viceCompletions];
+  }
+
+  // Toggle a day's status: cycle/create/update/remove. Date expected YYYY-MM-DD
+  public toggleViceDay(viceId: string, status: ViceCompletion['status'], date?: string, note?: string): boolean {
+    const day = date ?? formatDate(new Date());
+    if (!this.data.viceCompletions) this.data.viceCompletions = [];
+    const existingIdx = this.data.viceCompletions.findIndex(c => c.viceId === viceId && c.date === day);
+    if (existingIdx === -1) {
+      const newEntry: ViceCompletion = { id: generateId(), viceId, date: day, status, note, recordedAt: new Date().toISOString() };
+      this.data.viceCompletions.push(newEntry);
+      this.updateViceStreak(viceId);
+      this.saveData();
+      return true;
+    }
+
+    const existing = this.data.viceCompletions[existingIdx];
+    if (existing.status === status) {
+      // toggle off
+      this.data.viceCompletions.splice(existingIdx, 1);
+      this.updateViceStreak(viceId);
+      this.saveData();
+      return true;
+    }
+
+    // update status
+    this.data.viceCompletions[existingIdx] = { ...existing, status, note, recordedAt: new Date().toISOString() };
+    this.updateViceStreak(viceId);
+    this.saveData();
+    return true;
+  }
+
+  // Return map date -> status for the given month (YYYY-MM)
+  public getViceCalendarData(viceId: string, month?: string): Record<string, ViceCompletion['status']> {
+    const res: Record<string, ViceCompletion['status']> = {};
+    const comps = this.getViceCompletions(viceId);
+    const prefix = month ? month + '-' : '';
+    for (const c of comps) {
+      if (!month || c.date.startsWith(month)) {
+        res[c.date] = c.status;
+      }
+    }
+    return res;
+  }
+
+  public getViceStreak(viceId: string): number {
+    const vice = this.data.vices?.find(v => v.id === viceId);
+    if (!vice) return 0;
+    return vice.streak || 0;
+  }
+
+  private updateViceStreak(viceId: string): void {
+    // Calculate consecutive clean days up to today
+    const comps = (this.data.viceCompletions || []).filter(c => c.viceId === viceId);
+    const compMap = new Map<string, ViceCompletion['status']>();
+    for (const c of comps) compMap.set(c.date, c.status);
+
+    let count = 0;
+
+    // If there is any recorded relapse, consider the streak broken (strict semantics)
+    if (comps.some(c => c.status === 'relapse')) {
+      // explicit reset to 0
+      count = 0;
+    } else {
+      let countLocal = 0;
+      let day = new Date();
+      while (true) {
+        const dayStr = formatDate(day);
+        const status = compMap.get(dayStr);
+        if (status === 'clean') {
+          countLocal++;
+        } else {
+          break;
+        }
+        // previous day
+        day.setDate(day.getDate() - 1);
+      }
+      count = countLocal;
+    }
+
+    const idx = this.data.vices?.findIndex(v => v.id === viceId) ?? -1;
+    if (idx !== -1 && this.data.vices) {
+      this.data.vices[idx].streak = count;
+      this.saveData();
+    }
   }
 
   // Reset diário à meia-noite
@@ -397,6 +726,22 @@ export class LocalStorageManager {
     } catch (error) {
       console.error('Erro ao importar dados:', error);
       return false;
+    }
+  }
+
+  // Attempt to load persisted app data from remote Supabase (single-user key)
+  // This silently falls back to local storage if the server is unreachable
+  private async loadFromRemote(): Promise<void> {
+    try {
+      const remote = await loadDataRemote(STORAGE_KEY);
+      if (remote && typeof remote === 'object') {
+        this.data = { ...defaultData, ...remote, version: STORAGE_VERSION };
+        if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
+        if (remote.records) this.data.records = { ...defaultRecordsData, ...remote.records };
+        this.saveData();
+      }
+    } catch (err) {
+      // silent fallback to local-only mode
     }
   }
 
@@ -598,47 +943,15 @@ export class LocalStorageManager {
   /* Remote sync helpers (Supabase)
    * Usage: call initSupabase(SUPABASE_URL, SUPABASE_ANON_KEY) once on app startup
    */
-  public async backupToSupabase(userId: string): Promise<boolean> {
-    try {
-      const supabase = getSupabase();
-      const payload = { user_id: userId, data: JSON.stringify(this.data), updated_at: new Date().toISOString() };
-
-      const { error } = await supabase.from('app_data').upsert(payload, { onConflict: 'user_id' });
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('backupToSupabase failed', err);
-      return false;
-    }
+  // Supabase sync disabled in this branch. Keep methods as no-ops for compatibility.
+  public async backupToSupabase(_userId: string): Promise<boolean> {
+    // noop: Supabase integration removed
+    return false;
   }
 
-  public async restoreFromSupabase(userId: string): Promise<boolean> {
-    try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase.from('app_data').select('data').eq('user_id', userId).single();
-      if (error) {
-        if ((error as any).code === 'PGRST116') return false; // not found
-        throw error;
-      }
-      if (data && data.data) {
-        try {
-          const parsed = JSON.parse(data.data as string);
-          // Replace local data with remote user's data to ensure per-account isolation.
-          // Preserve local default settings where missing.
-          this.data = { ...defaultData, ...parsed, version: STORAGE_VERSION } as ExtendedAppData;
-          if (!this.data.settings) this.data.settings = { ...defaultSettings };
-          else this.data.settings = { ...defaultSettings, ...this.data.settings };
-          this.saveData();
-          return true;
-        } catch (e) {
-          console.error('Failed parsing backup data', e);
-        }
-      }
-      return false;
-    } catch (err) {
-      console.error('restoreFromSupabase failed', err);
-      return false;
-    }
+  public async restoreFromSupabase(_userId: string): Promise<boolean> {
+    // noop: Supabase integration removed
+    return false;
   }
 
   /**

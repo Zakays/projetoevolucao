@@ -116,7 +116,7 @@ export async function executeCommand(cmd: Command): Promise<{ ok: boolean; messa
         const ok = storage.deleteHabit(id);
         res = { ok, message: ok ? 'Hábito removido' : 'Hábito não encontrado' };
       }
-    } else if ((e === 'habito' || e === 'habit') && (a === 'complete' || a === 'concluir' || a === 'concluir')) {
+    } else if ((String(e) === 'habito' || String(e) === 'habit') && (String(a) === 'complete' || String(a) === 'concluir')) {
       // support completing a habit for today with optional status and justification
       const id = p.id || p.ID || p.habitId || p.habit;
       if (!id) {

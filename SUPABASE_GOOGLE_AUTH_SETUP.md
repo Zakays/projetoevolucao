@@ -1,7 +1,8 @@
-Guia: Configurar Supabase + Google OAuth e implementar autenticação no frontend
+Arquivo arquivado: Configuração Supabase + Google OAuth (removida)
 
-Objetivo
-- Recriar do zero a autenticação usando Supabase com login via Google. Este documento descreve os passos necessários no Supabase, Google Cloud e as alterações mínimas no frontend (códigos e rotas).
+Este documento foi arquivado porque a autenticação via Supabase/Google foi removida do fluxo principal. A persistência sem login será implementada em breve.
+
+(Arquivo mantido apenas para histórico.)
 
 URLs de desenvolvimento (use estas para teste local)
 - Dev (Vite): http://localhost:5173/
@@ -18,8 +19,10 @@ URLs de desenvolvimento (use estas para teste local)
 
 2) Google Cloud (OAuth 2.0)
 - Console Google Cloud → APIs & Services → Credentials → Create Credentials → OAuth client ID (Web application).
-  - Authorized JavaScript origins: http://localhost:5173
-  - Authorized redirect URIs: http://localhost:5173/
+  - Authorized JavaScript origins: http://localhost:5173, http://localhost:8080
+  - Authorized redirect URIs: http://localhost:5173/, http://localhost:8080/, http://localhost:8080/#/
+
+  Note: the project sometimes runs on port 8080 (Vite default here). Make sure the above redirect URIs include your dev origin (e.g., `http://localhost:8080/#/`) so OAuth redirects back correctly.
   - Copie o Client ID e Client Secret para o Supabase (passo 1).
 
 3) Variáveis de ambiente

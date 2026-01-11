@@ -21,6 +21,26 @@ export interface HabitCompletion {
   completedAt?: string;
 }
 
+// Vices feature: track behaviors (vices) and per-day completion statuses
+export interface Vice {
+  id: string;
+  name: string;
+  note?: string;
+  color?: string; // CSS color or gradient
+  icon?: string;
+  createdAt: string; // ISO
+  streak?: number; // computed consecutive clean days
+}
+
+export interface ViceCompletion {
+  id: string;
+  viceId: string;
+  date: string; // YYYY-MM-DD
+  status: 'clean' | 'relapse';
+  note?: string;
+  recordedAt?: string; // ISO
+}
+
 export interface DailyStats {
   date: string; // YYYY-MM-DD
   totalHabits: number;
@@ -85,6 +105,8 @@ export interface BodyMeasurement {
     selfEsteem: number; // 1-10
   };
   notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface JournalEntry {
@@ -120,7 +142,8 @@ export interface Milestone {
 }
 
 export interface UserSettings {
-  theme: 'light' | 'dark' | 'system';
+  // Theme can be one of the predefined palettes. 'system' defers to the OS preference.
+  theme: 'light' | 'dark' | 'system' | 'ocean' | 'sunset' | 'forest' | 'midnight';
   soundEnabled: boolean;
   animationsEnabled: boolean;
   minimalMode: boolean;
@@ -187,6 +210,7 @@ export interface QuizQuestion {
   category: string;
   difficulty: 'easy' | 'medium' | 'hard';
   explanation?: string;
+  createdAt?: string;
   tags: string[];
 }
 
@@ -365,4 +389,7 @@ export interface ExtendedAppData extends AppData {
   finances?: FinancialEntry[];
   // persisted AI conversation history for personalization
   aiConversations?: AIMessage[];
+  // Vices feature
+  vices?: Vice[];
+  viceCompletions?: ViceCompletion[];
 }

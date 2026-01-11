@@ -18,7 +18,7 @@ describe('Habit streak edge-cases', () => {
     vi.setSystemTime(jan1);
 
     const weekday = jan1.getDay();
-    const habit = storage.addHabit({ name: 'Daily test', daysOfWeek: [weekday], weight: 1 });
+    const habit = storage.addHabit({ name: 'Daily test', daysOfWeek: [weekday], weight: 1, category: 'saude', isEssential: false });
 
     storage.completeHabit(habit.id, 'completed');
     let h = storage.getHabits().find(hb => hb.id === habit.id);
@@ -38,7 +38,7 @@ describe('Habit streak edge-cases', () => {
     // Jan 1 completed
     vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
     const weekday = new Date('2026-01-01T12:00:00Z').getDay();
-    const habit = storage.addHabit({ name: 'Miss test', daysOfWeek: [weekday], weight: 1 });
+    const habit = storage.addHabit({ name: 'Miss test', daysOfWeek: [weekday], weight: 1, category: 'saude', isEssential: false });
 
     storage.completeHabit(habit.id, 'completed');
     let h = storage.getHabits().find(hb => hb.id === habit.id);
@@ -57,7 +57,7 @@ describe('Habit streak edge-cases', () => {
     // Jan 1 completed
     vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
     const weekday = new Date('2026-01-01T12:00:00Z').getDay();
-    const habit = storage.addHabit({ name: 'Justify test', daysOfWeek: [weekday], weight: 1 });
+    const habit = storage.addHabit({ name: 'Justify test', daysOfWeek: [weekday], weight: 1, category: 'saude', isEssential: false });
 
     storage.completeHabit(habit.id, 'completed');
 
@@ -77,7 +77,7 @@ describe('Habit streak edge-cases', () => {
     // Jan 1 completed
     vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
     const weekday = new Date('2026-01-01T12:00:00Z').getDay();
-    const habit = storage.addHabit({ name: 'LastCompleted test', daysOfWeek: [weekday], weight: 1 });
+    const habit = storage.addHabit({ name: 'LastCompleted test', daysOfWeek: [weekday], weight: 1, category: 'saude', isEssential: false });
 
     storage.completeHabit(habit.id, 'completed');
     // Jan 2 justified

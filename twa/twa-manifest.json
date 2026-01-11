@@ -1,0 +1,35 @@
+{
+  "packageId": "com.glowuporganizer.app",
+  "host": "127.0.0.1:5173",
+  "launcherName": "Glow Up Organizer",
+  "appName": "Glow Up",
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "orientation": "portrait-primary",
+  "minSdkVersion": 24,
+  "targetSdkVersion": 34,
+  "permissions": [
+    "INTERNET"
+  ],
+  "useBrowserOnChromeOS": true,
+  "startUrl": "/",
+  "display": "standalone",
+  "theme": "#6366f1",
+  "backgroundColor": "#ffffff",
+  "enableNotifications": true,
+  "shortcuts": [
+    {
+      "name": "Hábitos",
+      "shortName": "Hábitos",
+      "description": "Ir para seção de hábitos",
+      "url": "/habits",
+      "icons": [
+        {
+          "src": "./favicon.svg",
+          "purpose": "any"
+        }
+      ],
+      "chosenIconUrl": "/favicon.svg"
+    }
+  ]
+}

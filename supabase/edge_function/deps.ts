@@ -1,15 +1,4 @@
-// Dependencies for Supabase Edge Functions
-// This file centralizes all external dependencies
+// Supabase edge functions dependencies have been archived in this branch.
+// If you need to run tests, restore the original file from git history.
 
-// Standard library imports from JSR
-export {
-  assertEquals,
-  assertExists,
-  assertNotEquals,
-  assertThrows,
-  assertRejects,
-  assert,
-} from "jsr:@std/assert"
-
-// Supabase client
-export { createClient } from "npm:@supabase/supabase-js"
+export const archived = true;

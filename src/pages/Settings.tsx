@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { storage } from '@/lib/storage';
+import { applyTheme } from '@/lib/theme';
 import { UserSettings } from '@/types';
 import { toast } from 'sonner';
 import { 
@@ -75,23 +76,6 @@ const SettingsPage = () => {
     toast.success('Frase motivacional atualizada!');
   };
 
-  const applyTheme = (theme: string) => {
-    const root = document.documentElement;
-    
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else if (theme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      // System theme
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (prefersDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    }
-  };
 
   const exportData = () => {
     try {
@@ -196,7 +180,7 @@ const SettingsPage = () => {
               <Label>Tema</Label>
               <Select 
                 value={settings.theme} 
-                onValueChange={(value: 'light' | 'dark' | 'system') => updateSetting('theme', value)}
+                onValueChange={(value: any) => updateSetting('theme', value)}
               >
                 <SelectTrigger className={'w-full'}>
                   <SelectValue />
@@ -220,6 +204,36 @@ const SettingsPage = () => {
                       <span>Sistema</span>
                     </div>
                   </SelectItem>
+
+                  {/* New color themes */}
+                  <SelectItem value={'ocean'}>
+                    <div className={'flex items-center space-x-2'}>
+                      <div className={'h-4 w-6 rounded-sm'} style={{ background: 'linear-gradient(90deg, hsl(197 71% 44%), hsl(191 80% 60%))' }} />
+                      <span>Ocean</span>
+                    </div>
+                  </SelectItem>
+
+                  <SelectItem value={'sunset'}>
+                    <div className={'flex items-center space-x-2'}>
+                      <div className={'h-4 w-6 rounded-sm'} style={{ background: 'linear-gradient(90deg, hsl(14 86% 57%), hsl(320 100% 68%))' }} />
+                      <span>Sunset</span>
+                    </div>
+                  </SelectItem>
+
+                  <SelectItem value={'forest'}>
+                    <div className={'flex items-center space-x-2'}>
+                      <div className={'h-4 w-6 rounded-sm'} style={{ background: 'linear-gradient(90deg, hsl(138 46% 31%), hsl(122 39% 45%))' }} />
+                      <span>Forest</span>
+                    </div>
+                  </SelectItem>
+
+                  <SelectItem value={'midnight'}>
+                    <div className={'flex items-center space-x-2'}>
+                      <div className={'h-4 w-6 rounded-sm'} style={{ background: 'linear-gradient(90deg, hsl(230 40% 12%), hsl(260 40% 22%))' }} />
+                      <span>Midnight</span>
+                    </div>
+                  </SelectItem>
+
                 </SelectContent>
               </Select>
             </div>
@@ -474,6 +488,47 @@ const SettingsPage = () => {
                   <Button variant={'outline'} className={'w-full pointer-events-none'}>
                     <Upload className={'h-4 w-4 mr-2'} />
                     Importar Backup
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Sync (manual) */}
+            <div className={'pt-4 border-t'}>
+              <div className={'space-y-2'}>
+                <Label>Sincronização Manual</Label>
+                <p className={'text-sm text-muted-foreground mb-2'}>
+                  Envie suas alterações agora ou recarregue todos os dados do servidor.
+                </p>
+                <div className={'flex items-center gap-2'}>
+                  <Button onClick={async () => {
+                    toast('Sincronizando: enviando alterações...', { duration: 4000 });
+                    try {
+                      await storage.forceSyncNow();
+                      toast.success('Envio concluído (fila processada)');
+                    } catch (e) {
+                      toast.error('Falha ao enviar alterações');
+                    }
+                  }} className={'w-full md:w-auto'}>
+                    <Upload className={'h-4 w-4 mr-2'} /> Enviar alterações agora
+                  </Button>
+
+                  <Button variant={'outline'} onClick={async () => {
+                    if (!confirm('Isso substituirá seus dados locais se houver dados remotos mais recentes. Continuar?')) return;
+                    toast('Recarregando dados do servidor...', { duration: 4000 });
+                    try {
+                      const ok = await storage.pullFromServer(true);
+                      if (ok) {
+                        toast.success('Dados recarregados do servidor. A página será recarregada.');
+                        setTimeout(() => window.location.reload(), 800);
+                      } else {
+                        toast('Nenhum dado remoto encontrado ou já está atualizado');
+                      }
+                    } catch (e) {
+                      toast.error('Falha ao recarregar do servidor');
+                    }
+                  }} className={'w-full md:w-auto'}>
+                    <RotateCcw className={'h-4 w-4 mr-2'} /> Recarregar do servidor
                   </Button>
                 </div>
               </div>

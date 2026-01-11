@@ -6,7 +6,7 @@ import { storage } from '@/lib/storage';
 
 // small helper to seed files
 function seedFiles() {
-  storage.data.records.uploadedFiles = [
+  (storage.getData().records as any).uploadedFiles = [
     { id: 'a', originalName: 'a.jpg', type: 'image/jpeg', size: 1024, previewUrl: 'a', category: 'uploads', tags: [] },
     { id: 'b', originalName: 'b.jpg', type: 'image/jpeg', size: 2048, previewUrl: 'b', category: 'uploads', tags: [] },
   ] as any;

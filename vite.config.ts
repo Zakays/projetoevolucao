@@ -1,5 +1,6 @@
 // vite.config.ts
 import { defineConfig, type Plugin } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import react from '@vitejs/plugin-react-swc';
 import fs from 'node:fs/promises';
 import nodePath from 'node:path';
@@ -7,17 +8,17 @@ import { componentTagger } from 'lovable-tagger';
 // Use `nodePath` (imported above) instead of `path` to avoid name collisions.
 
 import { parse } from '@babel/parser';
-import _traverse from '@babel/traverse';
-import _generate from '@babel/generator';
+import * as _traverse from '@babel/traverse';
+import * as _generate from '@babel/generator';
 import * as t from '@babel/types';
 
 
 // CJS/ESM interop for Babel libs
 // Babel packages have messy CJS/ESM interop; silence strict 'no-explicit-any' here as the runtime behavior is well-known
  
-const traverse: typeof _traverse.default = ( (_traverse as any).default ?? _traverse ) as any;
+const traverse: any = ( (_traverse as any).default ?? (_traverse as any) );
  
-const generate: typeof _generate.default = ( (_generate as any).default ?? _generate ) as any;
+const generate: any = ( (_generate as any).default ?? (_generate as any) );
 
 function cdnPrefixImages(): Plugin {
   const DEBUG = process.env.CDN_IMG_DEBUG === '1';
@@ -64,25 +65,25 @@ function cdnPrefixImages(): Plugin {
     // src / href
     html = html.replace(
       /(src|href)\s*=\s*(['"])([^'"]+)\2/g,
-      (_m, k, q, p) => `${k}=${q}${toCDN(p, cdn)}${q}`
+      (_m: string, k: string, q: string, p: string) => `${k}=${q}${toCDN(p, cdn)}${q}`
     );
     // srcset
     html = html.replace(
       /(srcset)\s*=\s*(['"])([^'"]+)\2/g,
-      (_m, k, q, list) => `${k}=${q}${rewriteSrcsetList(list, cdn)}${q}`
+      (_m: string, k: string, q: string, list: string) => `${k}=${q}${rewriteSrcsetList(list, cdn)}${q}`
     );
     return html;
   };
 
   const rewriteCssUrls = (code: string, cdn: string) =>
-    code.replace(/url\((['"]?)([^'")]+)\1\)/g, (_m, q, p) => `url(${q}${toCDN(p, cdn)}${q})`);
+    code.replace(/url\((['"]?)([^'\")]+)\1\)/g, (_m: string, q: string, p: string) => `url(${q}${toCDN(p, cdn)}${q})`);
 
   const rewriteJsxAst = (code: string, id: string, cdn: string) => {
     const ast = parse(code, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
     let rewrites = 0;
 
     traverse(ast, {
-      JSXAttribute(p) {
+      JSXAttribute(p: any) {
         const name = (p.node.name as t.JSXIdentifier).name;
         const isSrc = name === 'src' || name === 'href';
         const isSrcSet = name === 'srcSet' || name === 'srcset';
@@ -106,23 +107,23 @@ function cdnPrefixImages(): Plugin {
         }
       },
 
-      StringLiteral(p) {
+      StringLiteral(p: any) {
         // skip object keys: { "image": "..." }
         if (t.isObjectProperty(p.parent) && p.parentKey === 'key' && !p.parent.computed) return;
         // skip import/export sources
         if (t.isImportDeclaration(p.parent) || t.isExportAllDeclaration(p.parent) || t.isExportNamedDeclaration(p.parent)) return;
         // skip inside JSX attribute (already handled)
-        if (p.findParent(p2 => p2.isJSXAttribute())) return;
+        if (p.findParent((p2: any) => p2.isJSXAttribute())) return;
 
         const before = p.node.value;
         const after = toCDN(before, cdn);
         if (after !== before) { p.node.value = after; rewrites++; }
       },
 
-      TemplateLiteral(p) {
+      TemplateLiteral(p: any) {
         // handle `"/images/foo.png"` as template with NO expressions
         if (p.node.expressions.length) return;
-        const raw = p.node.quasis.map(q => q.value.cooked ?? q.value.raw).join('');
+        const raw = p.node.quasis.map((q: t.TemplateElement) => q.value.cooked ?? q.value.raw).join('');
         const after = toCDN(raw, cdn);
         if (after !== raw) {
           p.replaceWith(t.stringLiteral(after));
@@ -226,6 +227,44 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.svg','favicon.ico','robots.txt','placeholder.svg','icon-192.png','icon-512.png'],
+        manifest: {
+          name: 'GlowUp Organizer',
+          short_name: 'GlowUp',
+          start_url: '/',
+          display: 'standalone',
+          background_color: '#ffffff',
+          theme_color: '#111827',
+          icons: [
+            { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+          ]
+        },
+        workbox: {
+          runtimeCaching: [
+            {
+              urlPattern: /\/api\/.*$/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'api-cache',
+                expiration: { maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 },
+                networkTimeoutSeconds: 10
+              }
+            },
+            {
+              urlPattern: /\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'image-cache',
+                expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 }
+              }
+            }
+          ]
+        }
+      }),
       mode === 'development' &&
       componentTagger(),
       cdnPrefixImages(),

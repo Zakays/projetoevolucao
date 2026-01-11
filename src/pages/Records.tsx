@@ -126,7 +126,7 @@ const RecordsPage = () => {
           metadata: {},
         };
 
-        storage.addUploadedFile(uploaded);
+        storage.addUploadedFile(uploaded as any);
       }
 
       toast.success('Arquivo(s) enviados');

@@ -22,6 +22,8 @@ describe('Monthly archiving at month boundary', () => {
       name: 'End of month habit',
       daysOfWeek: [weekday],
       weight: 3,
+      category: 'disciplina',
+      isEssential: false,
     });
 
     // Complete habit on Dec 31

@@ -1,17 +1,3 @@
 {
-  "imports": {
-    "std/": "jsr:@std/",
-    "supabase": "npm:@supabase/supabase-js@2"
-  },
-  "tasks": {
-    "test": "deno test --allow-net --allow-env --env-file=.env"
-  },
-  "lint": {
-    "include": ["**/*.ts"],
-    "exclude": ["**/vendor/**"]
-  },
-  "fmt": {
-    "include": ["**/*.ts"],
-    "exclude": ["**/vendor/**"]
-  }
+  "note": "Supabase edge functions removed/archived in this branch. If you need them later, restore from history."
 }

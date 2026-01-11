@@ -17,13 +17,15 @@ import {
   Camera,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  Coffee
 } from 'lucide-react';
 import Account from './Account';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Habitos', href: '/habits', icon: CheckSquare },
+  { name: 'Vícios', href: '/vices', icon: Coffee },
   { name: 'Treino', href: '/training', icon: Dumbbell },
   { name: 'Corpo', href: '/body', icon: User },
   { name: 'Diario', href: '/journal', icon: BookOpen },
@@ -41,7 +43,24 @@ const navigation = [
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const [dueCount, setDueCount] = useState(0);
+  const [syncInfo, setSyncInfo] = useState<{ status: string; queueLength: number }>({ status: 'idle', queueLength: 0 });
   const location = useLocation();
+
+  useEffect(() => {
+    const initial = () => {
+      try {
+        const q = storage.getSyncQueue();
+        setSyncInfo({ status: q.length === 0 ? 'idle' : 'pending', queueLength: q.length });
+      } catch (e) { /* noop */ }
+    };
+    initial();
+    const handler = (e: any) => {
+      const detail = e?.detail || {};
+      setSyncInfo({ status: detail.status || (detail.queueLength > 0 ? 'pending' : 'idle'), queueLength: detail.queueLength || 0 });
+    };
+    try { window.addEventListener('glowup:sync-status', handler); } catch (e) {}
+    return () => { try { window.removeEventListener('glowup:sync-status', handler); } catch (e) {} };
+  }, []);
 
   useEffect(() => {
     const update = () => setDueCount(storage.getDueVocabularyCount());
@@ -123,8 +142,13 @@ export function Navigation() {
           {/* Footer */}
           <div className={'p-4 border-t'}>
             <div className={'text-center space-y-2'}>
-              <p className={'text-xs text-muted-foreground'}>Versao 1.0.0</p>
-              <Account />
+              <p className={'text-xs text-muted-foreground'}>Versao 1.0.0</p>              {syncInfo.status !== 'idle' && (
+                <div className={'mb-1'}>
+                  <Badge variant={syncInfo.status === 'syncing' ? 'secondary' : 'destructive'} className={'text-xs'}>
+                    {syncInfo.status === 'syncing' ? 'Sincronizando...' : `Pendentes: ${syncInfo.queueLength}`}
+                  </Badge>
+                </div>
+              )}              <Account />
               <div className={'gradient-glow rounded-lg p-3'}>
                 <p className={'text-xs text-white font-medium'}>🎯 Meta 2026: Glow Up Completo</p>
               </div>

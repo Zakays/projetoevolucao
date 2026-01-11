@@ -389,7 +389,6 @@ const Training = () => {
                                     value={set.reps || ''}
                                     onChange={(e) => updateSet(exercise.id, setIndex, { reps: parseInt(e.target.value) || 0 })}
                                     placeholder={'12'}
-                                    size={'sm'}
                                   />
                                 </div>
                                 <div>
@@ -400,7 +399,6 @@ const Training = () => {
                                     value={set.weight || ''}
                                     onChange={(e) => updateSet(exercise.id, setIndex, { weight: parseFloat(e.target.value) || 0 })}
                                     placeholder={'10'}
-                                    size={'sm'}
                                   />
                                 </div>
                                 <div>
@@ -410,7 +408,6 @@ const Training = () => {
                                     value={set.duration || ''}
                                     onChange={(e) => updateSet(exercise.id, setIndex, { duration: parseInt(e.target.value) || 0 })}
                                     placeholder={'30'}
-                                    size={'sm'}
                                   />
                                 </div>
                                 <div>
@@ -420,7 +417,6 @@ const Training = () => {
                                     value={set.rest || ''}
                                     onChange={(e) => updateSet(exercise.id, setIndex, { rest: parseInt(e.target.value) || 60 })}
                                     placeholder={'60'}
-                                    size={'sm'}
                                   />
                                 </div>
                                 <Button

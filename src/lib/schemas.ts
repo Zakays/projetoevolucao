@@ -37,6 +37,9 @@ export const ExtendedAppDataSchema = z.object({
   }).optional(),
   finances: z.array(z.any()).optional(),
   records: RecordsDataSchema.optional(),
+  // Vices
+  vices: z.array(z.any()).optional(),
+  viceCompletions: z.array(z.any()).optional(),
 }).partial();
 
 export type ExtendedAppDataParsed = z.infer<typeof ExtendedAppDataSchema>;
