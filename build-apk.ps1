@@ -4,7 +4,7 @@
 #     .\build-apk.ps1 example.com
 
 param(
-    [string]$Host = "localhost:5173"
+    [string]$Host = "projetoevolucao.vercel.app"
 )
 
 Write-Host "Gerando APK para host: $Host" -ForegroundColor Cyan

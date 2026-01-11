@@ -4,7 +4,7 @@
 # Ex: bash build-apk.sh localhost:5173
 #     bash build-apk.sh example.com
 
-HOST=${1:-localhost:5173}
+HOST=${1:-projetoevolucao.vercel.app}
 echo "Gerando APK para host: $HOST"
 
 # Criar diretório de output se não existir

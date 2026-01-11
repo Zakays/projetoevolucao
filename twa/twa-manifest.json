@@ -1,6 +1,6 @@
 {
   "packageId": "com.glowuporganizer.app",
-  "host": "127.0.0.1:5173",
+  "host": "projetoevolucao.vercel.app",
   "launcherName": "Glow Up Organizer",
   "appName": "Glow Up",
   "appVersion": "1.0.0",

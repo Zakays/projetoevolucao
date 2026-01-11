@@ -1,6 +1,6 @@
 {
   "packageId": "com.glowuporganizer.app",
-  "host": "localhost",
+  "host": "projetoevolucao.vercel.app",
   "name": "GlowUp Organizer",
   "launcherName": "GlowUp",
   "display": "standalone",
@@ -13,8 +13,8 @@
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "http://127.0.0.1:5173/favicon.svg",
-  "maskableIconUrl": "http://127.0.0.1:5173/favicon.svg",
+  "iconUrl": "https://projetoevolucao.vercel.app/favicon.svg",
+  "maskableIconUrl": "https://projetoevolucao.vercel.app/favicon.svg",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "C:\Users\maria\Downloads\projetoevolucao\glowapp.keystore",
@@ -24,7 +24,7 @@
   "appVersionCode": 1,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "http://127.0.0.1:5173/manifest.webmanifest",
+  "webManifestUrl": "https://projetoevolucao.vercel.app/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -33,7 +33,7 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "http://127.0.0.1:5173/",
+  "fullScopeUrl": "https://projetoevolucao.vercel.app/",
   "minSdkVersion": 21,
   "orientation": "default",
   "fingerprints": [],
