@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate placeholder icons
+        run: npm run generate:icons || true
+
       - name: Build web assets
         run: npm run build
 
@@ -51,6 +54,8 @@ jobs:
           curl -v --max-time 10 http://127.0.0.1:5173/manifest.webmanifest || true
           echo "--- curl manifest headers ---"
           curl -I --max-time 10 http://127.0.0.1:5173/manifest.webmanifest || true
+          echo "--- check icon 512 ---"
+          curl -I --max-time 10 http://127.0.0.1:5173/icon-512.png || true
           echo "--- list dist ---"
           ls -la dist || true
           echo "--- head dist/manifest.webmanifest (if exists) ---"
@@ -58,7 +63,15 @@ jobs:
 
       - name: Initialize TWA project (debug)
         run: |
-          bubblewrap init --manifest "http://127.0.0.1:5173/manifest.webmanifest" --output "twa/output" --yes --log-level debug
+          echo "Running bubblewrap init (logs -> twa/bubblewrap-init.log)"
+          set -o pipefail || true
+          bubblewrap init --manifest "http://127.0.0.1:5173/manifest.webmanifest" --host "127.0.0.1:5173" --output "twa/output" --yes --log-level debug 2>&1 | tee twa/bubblewrap-init.log || true
+
+      - name: Upload bubblewrap init log
+        uses: actions/upload-artifact@v4
+        with:
+          name: bubblewrap-init-log
+          path: twa/bubblewrap-init.log
 
       - name: Build APK (Gradle)
         run: |
