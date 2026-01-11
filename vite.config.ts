@@ -229,7 +229,6 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        // include an explicit offline fallback page
         includeAssets: ['favicon.svg','favicon.ico','robots.txt','placeholder.svg','icon-192.png','icon-512.png','offline.html'],
         manifest: {
           name: 'GlowUp Organizer',
