@@ -54,7 +54,6 @@
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.3",
-    "workbox-window": "^7.4.0",
     "embla-carousel-react": "^8.3.0",
     "express": "^5.2.1",
     "idb": "^7.1.1",
