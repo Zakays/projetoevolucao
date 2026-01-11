@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GitHub Copilot <noreply@github.com>
+Date: Sun, 11 Jan 2026 16:55:00 -0300
+Subject: [PATCH] chore: align @supabase/supabase-js and add pnpm devDependency
+ to match lockfile (fix Vercel frozen-lockfile)
+
+---
+ package.json | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/package.json b/package.json
+index 0000000..1111111 100644
+--- a/package.json
++++ b/package.json
+@@
+-    "@supabase/supabase-js": "^2.38.0",
++    "@supabase/supabase-js": "^2.55.0",
+@@
+-    "vite-plugin-pwa": "^1.2.0",
+-    "vitest": "^1.0.0"
++    "vite-plugin-pwa": "^1.2.0",
++    "vitest": "^1.0.0",
++    "pnpm": "^10.27.0"
+   }
+-- 
+2.39.2
