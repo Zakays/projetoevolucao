@@ -269,6 +269,11 @@ export default defineConfig(({ mode }) => {
       componentTagger(),
       cdnPrefixImages(),
     ].filter(Boolean),
+    build: {
+      rollupOptions: {
+        external: ['workbox-window']
+      }
+    },
     resolve: {
       alias: {
         "@": nodePath.resolve(__dirname, "./src"),
