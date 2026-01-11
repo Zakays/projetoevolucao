@@ -42,6 +42,14 @@ jobs:
             mv cmdline-tools/* cmdline-tools/latest/ || true
           fi
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
+          echo "PATH=$PATH"
+          echo "Which sdkmanager:" && which sdkmanager || true
+          echo "SDK manager version (if available):" && sdkmanager --version || true
+          # Ensure sdkmanager exists
+          if ! command -v sdkmanager >/dev/null; then
+            echo "sdkmanager not found. Listing cmdline-tools/latest/bin:" && ls -la cmdline-tools/latest/bin || true
+            exit 1
+          fi
           # Accept SDK licenses non-interactively
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
           sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-31" "build-tools;31.0.0"
