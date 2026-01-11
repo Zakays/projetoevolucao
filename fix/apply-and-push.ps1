@@ -1,19 +1,10 @@
-# Apply patch, ensure pnpm@10.x, regenerate pnpm-lock.yaml, commit and push
-# Run this in PowerShell from the repository root: `.ix\apply-and-push.ps1`
+# Ensure pnpm@10.x is available, regenerate pnpm-lock.yaml, commit and push
+# Run this in PowerShell from the repository root: .\fix\apply-and-push.ps1
 set-StrictMode -Version Latest
 
 function ExitOnError($msg){ Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }
 
-# Apply patch
-$patch = Join-Path $PWD 'fix\0001-fix-pnpm-lockfile-update.patch'
-if(-not (Test-Path $patch)){ ExitOnError "Patch not found: $patch" }
-Write-Host "Applying patch: $patch"
-try {
-  git apply --index $patch
-} catch {
-  Write-Host "git apply failed, attempting fallback 'git apply' without --index" -ForegroundColor Yellow
-  try { git apply $patch } catch { ExitOnError "Failed to apply patch. Ensure git is installed and you're in the repo root." }
-}
+Write-Host "Skipping patch apply; package.json already updated, regenerating lockfile instead."
 
 # Ensure corepack / pnpm
 Write-Host "Ensuring pnpm@10.x is available..."
@@ -31,9 +22,13 @@ if($hasCorepack){
 
 # Run pnpm install to regenerate lockfile
 Write-Host "Running pnpm install (this updates pnpm-lock.yaml)..."
-$pnpm = (Get-Command pnpm -ErrorAction SilentlyContinue).Source
-if(-not $pnpm){ ExitOnError "pnpm not found after installation steps" }
-& $pnpm install
+$pnpmCmd = Get-Command pnpm -ErrorAction SilentlyContinue
+if(-not $pnpmCmd){ ExitOnError "pnpm not found after installation steps" }
+# Get executable path (CommandInfo uses Path; older/other variants may expose Source)
+$pnpmPath = $pnpmCmd.Path
+if(-not $pnpmPath -and $pnpmCmd.PSObject.Properties.Name -contains 'Source') { $pnpmPath = $pnpmCmd.Source }
+if(-not $pnpmPath){ ExitOnError "pnpm path not found on system after installation steps." }
+& $pnpmPath install
 if($LASTEXITCODE -ne 0){ ExitOnError "pnpm install failed" }
 
 # Stage lockfile and package.json and commit
@@ -44,7 +39,8 @@ $existing = $filesToAdd | Where-Object { Test-Path $_ }
 if($existing.Count -eq 0){ Write-Host "No lockfile/package.json changes detected to commit." }
 else {
   git add $existing
-  git commit -m "chore: update pnpm-lock.yaml to match package.json (fix Vercel frozen-lockfile)" || Write-Host "No commit created (possibly no changes)."
+  git commit -m "chore: update pnpm-lock.yaml to match package.json (fix Vercel frozen-lockfile)"
+  if ($LASTEXITCODE -ne 0) { Write-Host "No commit created (possibly no changes)." }
 }
 
 # Push to current branch
