@@ -20,40 +20,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK command-line tools and accept licenses
+      - name: Set up Android SDK using action
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 31
+          build-tools: '31.0.0'
         env:
-          ANDROID_SDK_ROOT: $HOME/android-sdk
-        run: |
-          set -euxo pipefail
-          sudo apt-get update
-          sudo apt-get install -y unzip wget curl
-          ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-$HOME/android-sdk}
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          cd "$ANDROID_SDK_ROOT"
-          # Download latest command line tools
-          curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-latest.zip" -o cmdline.zip
-          unzip -q cmdline.zip -d cmdline-tools
-          echo "After unzip:" && ls -la cmdline-tools
-          if [ -d cmdline-tools/cmdline-tools ]; then
-            mkdir -p cmdline-tools/latest
-            mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
-          else
-            mkdir -p cmdline-tools/latest
-            mv cmdline-tools/* cmdline-tools/latest/ || true
-          fi
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
-          echo "PATH=$PATH"
-          echo "Which sdkmanager:" && which sdkmanager || true
-          echo "SDK manager version (if available):" && sdkmanager --version || true
-          # Ensure sdkmanager exists
-          if ! command -v sdkmanager >/dev/null; then
-            echo "sdkmanager not found. Listing cmdline-tools/latest/bin:" && ls -la cmdline-tools/latest/bin || true
-            exit 1
-          fi
-          # Accept SDK licenses non-interactively
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
-          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-31" "build-tools;31.0.0"
-          ls -la "$ANDROID_SDK_ROOT"
+          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
       - name: Set up Node
         uses: actions/setup-node@v4
