@@ -1,0 +1,6 @@
+{
+  "appId": "com.glowuporganizer.app",
+  "appName": "GlowUp Organizer",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
