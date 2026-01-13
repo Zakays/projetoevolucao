@@ -1,27 +1,30 @@
+import React, { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import Habits from "./pages/Habits";
-import Training from "./pages/Training";
-import Body from "./pages/Body";
-import Journal from "./pages/Journal";
-import Goals from "./pages/Goals";
-import Stats from "./pages/Stats";
-import Study from "./pages/Study";
-import Quiz from "./pages/Quiz";
-import Vocabulary from "./pages/Vocabulary";
-import Records from "./pages/Records";
-import Courses from "./pages/Courses";
-import Finance from "./pages/Finance";
-import Settings from "./pages/Settings";
-import Vices from "./pages/Vices";
-import Instrutor from "./pages/Instrutor";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import DebugAuth from "./pages/DebugAuth";
+
+// Lazy-load route pages to reduce initial bundle size
+const Index = React.lazy(() => import("./pages/Index"));
+const Habits = React.lazy(() => import("./pages/Habits"));
+const Training = React.lazy(() => import("./pages/Training"));
+const Body = React.lazy(() => import("./pages/Body"));
+const Journal = React.lazy(() => import("./pages/Journal"));
+const Goals = React.lazy(() => import("./pages/Goals"));
+const Stats = React.lazy(() => import("./pages/Stats"));
+const Study = React.lazy(() => import("./pages/Study"));
+const Quiz = React.lazy(() => import("./pages/Quiz"));
+const Vocabulary = React.lazy(() => import("./pages/Vocabulary"));
+const Records = React.lazy(() => import("./pages/Records"));
+const Courses = React.lazy(() => import("./pages/Courses"));
+const Finance = React.lazy(() => import("./pages/Finance"));
+const Settings = React.lazy(() => import("./pages/Settings"));
+const Vices = React.lazy(() => import("./pages/Vices"));
+const Instrutor = React.lazy(() => import("./pages/Instrutor"));
+const NotFound = React.lazy(() => import("./pages/NotFound"));
+const Login = React.lazy(() => import("./pages/Login"));
+const DebugAuth = React.lazy(() => import("./pages/DebugAuth"));
 import AuthGate from "./components/AuthGate";
 
 const queryClient = new QueryClient();
@@ -33,28 +36,30 @@ const App = () => (
       <Sonner />
       <HashRouter>
         <AuthGate>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/debug-auth" element={<DebugAuth />} />
-            <Route path="/instrutor" element={<Instrutor />} />
-            <Route path="/" element={<Index />} />
-            <Route path="/habits" element={<Habits />} />
-            <Route path="/training" element={<Training />} />
-            <Route path="/body" element={<Body />} />
-            <Route path="/journal" element={<Journal />} />
-            <Route path="/goals" element={<Goals />} />
-            <Route path="/stats" element={<Stats />} />
-            <Route path="/study" element={<Study />} />
-            <Route path="/quiz" element={<Quiz />} />
-            <Route path="/vocabulary" element={<Vocabulary />} />
-            <Route path="/records" element={<Records />} />
-            <Route path="/courses" element={<Courses />} />
-            <Route path="/finance" element={<Finance />} />
-            <Route path="/vices" element={<Vices />} />
-            <Route path="/settings" element={<Settings />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<div/>}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/debug-auth" element={<DebugAuth />} />
+              <Route path="/instrutor" element={<Instrutor />} />
+              <Route path="/" element={<Index />} />
+              <Route path="/habits" element={<Habits />} />
+              <Route path="/training" element={<Training />} />
+              <Route path="/body" element={<Body />} />
+              <Route path="/journal" element={<Journal />} />
+              <Route path="/goals" element={<Goals />} />
+              <Route path="/stats" element={<Stats />} />
+              <Route path="/study" element={<Study />} />
+              <Route path="/quiz" element={<Quiz />} />
+              <Route path="/vocabulary" element={<Vocabulary />} />
+              <Route path="/records" element={<Records />} />
+              <Route path="/courses" element={<Courses />} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/vices" element={<Vices />} />
+              <Route path="/settings" element={<Settings />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </AuthGate>
       </HashRouter>
     </TooltipProvider>

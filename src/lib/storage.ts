@@ -948,15 +948,61 @@ export class LocalStorageManager {
   /* Remote sync helpers (Supabase)
    * Usage: call initSupabase(SUPABASE_URL, SUPABASE_ANON_KEY) once on app startup
    */
-  // Supabase sync disabled in this branch. Keep methods as no-ops for compatibility.
-  public async backupToSupabase(_userId: string): Promise<boolean> {
-    // noop: Supabase integration removed
-    return false;
+  public async backupToSupabase(_userId?: string): Promise<boolean> {
+    try {
+      // Use server API which performs an upsert into user_data (service role key)
+      const ok = await saveDataRemote(STORAGE_KEY, this.data);
+      return !!ok;
+    } catch (err) {
+      console.error('backupToSupabase failed', err);
+      return false;
+    }
   }
 
-  public async restoreFromSupabase(_userId: string): Promise<boolean> {
-    // noop: Supabase integration removed
-    return false;
+  public async restoreFromSupabase(_userId?: string): Promise<boolean> {
+    try {
+      const remote = await loadDataRemote(STORAGE_KEY);
+      if (!remote || typeof remote !== 'object') return false;
+
+      // Use conservative merge: replace if remote is newer
+      const remoteUpdated = remote && remote.lastUpdated ? new Date(remote.lastUpdated).getTime() : 0;
+      const localUpdated = this.data && this.data.lastUpdated ? new Date(this.data.lastUpdated).getTime() : 0;
+      if (remoteUpdated > localUpdated) {
+        this.data = { ...defaultData, ...remote, version: STORAGE_VERSION } as ExtendedAppData;
+        if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
+        if (remote.records) this.data.records = { ...defaultRecordsData, ...remote.records };
+        this.saveData();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('restoreFromSupabase failed', err);
+      return false;
+    }
+  }
+
+  /**
+   * Subscribe to Supabase realtime changes on the `user_data` table for the single-user key.
+   * When a remote change occurs we pull from the server and replace local data when appropriate.
+   */
+  public subscribeToRealtime(): void {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return;
+
+      const channel = (supabase as any)
+        .channel('public:user_data')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `key=eq.${STORAGE_KEY}` }, (_payload: any) => {
+          // Pull remote data and apply if newer
+          try { this.pullFromServer(true).catch(() => {}); } catch (e) { /* noop */ }
+        })
+        .subscribe();
+
+      // store reference so we can unsubscribe later if needed
+      (this as any)._supabaseChannel = channel;
+    } catch (err) {
+      // supabase not initialized or not available
+    }
   }
 
   /**

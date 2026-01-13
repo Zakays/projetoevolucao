@@ -2,11 +2,14 @@
 // Provides fallback to localStorage when offline or when the backend fails.
 
 const LOCAL_PREFIX = 'glowup_';
+// Optional base URL to reach the hosted server API (useful for mobile/native builds)
+const BASE_URL = (import.meta.env.VITE_PERSISTENCE_BASE_URL as string) || '';
+
 
 export async function saveData(key: string, value: any): Promise<boolean> {
   const body = { key, value };
   try {
-    const res = await fetch('/api/save', {
+    const res = await fetch(`${BASE_URL}/api/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -32,7 +35,7 @@ export async function saveData(key: string, value: any): Promise<boolean> {
 export async function loadData(key: string): Promise<any> {
   // Try remote first
   try {
-    const url = '/api/load?key=' + encodeURIComponent(key);
+    const url = `${BASE_URL}/api/load?key=` + encodeURIComponent(key);
     const res = await fetch(url, { method: 'GET' });
     if (res.ok) {
       const data = await res.json();
