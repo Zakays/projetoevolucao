@@ -3,10 +3,27 @@
 
 const LOCAL_PREFIX = 'glowup_';
 
+// Determine API base URL. When running from a file:// origin (Capacitor/web assets),
+// use the deployed site origin so fetch('/api/...') will resolve correctly.
+const API_BASE = (() => {
+  try {
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+      return 'https://projetoevolucao.vercel.app';
+    }
+  } catch (e) {}
+  return import.meta.env.VITE_API_BASE ?? '';
+})();
+
+function apiUrl(path: string) {
+  if (!API_BASE) return path;
+  return API_BASE.replace(/\/$/, '') + path;
+}
+
 export async function saveData(key: string, value: any): Promise<boolean> {
   const body = { key, value };
   try {
-    const res = await fetch('/api/save', {
+    const url = apiUrl('/api/save');
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -17,6 +34,7 @@ export async function saveData(key: string, value: any): Promise<boolean> {
     }
   } catch (err) {
     // network error — fall through to local save
+    console.warn('saveData: network error while POST', err);
   }
 
   // Fallback: save locally
