@@ -36,7 +36,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 app.post('/api/save', async (req, res) => {
   try {
     const { key, value } = req.body || {};
-    console.log('POST /api/save', { key, valueSummary: value ? (Array.isArray(value.habits) ? `habits:${value.habits.length}` : typeof value) : null });
     if (!key) return res.status(400).json({ error: 'key is required' });
 
     const payload = {
@@ -51,7 +50,6 @@ app.post('/api/save', async (req, res) => {
       return res.status(500).json({ error: 'db_error', details: error.message });
     }
 
-    console.log('POST /api/save ok', { key });
     return res.json({ ok: true });
   } catch (err) {
     console.error('Save error', err);
@@ -63,7 +61,6 @@ app.post('/api/save', async (req, res) => {
 app.get('/api/load', async (req, res) => {
   try {
     const key = String(req.query.key ?? '');
-    console.log('GET /api/load', { key });
     if (!key) return res.status(400).json({ error: 'key is required' });
 
     const { data, error } = await supabase
@@ -77,7 +74,6 @@ app.get('/api/load', async (req, res) => {
       return res.status(500).json({ error: 'db_error', details: error.message });
     }
 
-    console.log('GET /api/load result', { key, found: !!data });
     return res.json({ value: data?.value ?? null });
   } catch (err) {
     console.error('Load error', err);
