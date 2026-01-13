@@ -244,6 +244,8 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
+          // Don't precache files larger than ~500 KB (avoids large precache / service worker bloat)
+          maximumFileSizeToCacheInBytes: 500_000,
           // fallback to the app shell (index) when navigation requests fail (offline)
           navigateFallback: '/',
           // don't treat API requests as navigation fallbacks
