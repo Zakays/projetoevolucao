@@ -19,50 +19,57 @@ function apiUrl(path: string) {
   return API_BASE.replace(/\/$/, '') + path;
 }
 
-export async function saveData(key: string, value: any): Promise<boolean> {
-  const body = { key, value };
+app.post('/api/save', async (req, res) => {
   try {
-    const url = apiUrl('/api/save');
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
-      try { localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify({ value, updated_at: Date.now() })); } catch {}
-      return true;
-    }
-  } catch (err) {
-    // network error — fall through to local save
-    console.warn('saveData: network error while POST', err);
-  }
+    const { key, value } = req.body || {};
+    console.log('POST /api/save', { key, valueSummary: value ? (Array.isArray(value.habits) ? `habits:${value.habits.length}` : typeof value) : null });
+    if (!key) return res.status(400).json({ error: 'key is required' });
 
-  // Fallback: save locally
-  try {
-    localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify({ value, updated_at: Date.now() }));
-    return false;
-  } catch (err) {
-    console.error('saveData: failed to persist locally', err);
-    return false;
-  }
-}
+    const payload = {
+      key: String(key),
+      value: value ?? null,
+      updated_at: new Date().toISOString(),
+    };
 
-export async function loadData(key: string): Promise<any> {
-  // Try remote first
-  try {
-    const url = '/api/load?key=' + encodeURIComponent(key);
-    const res = await fetch(url, { method: 'GET' });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.value !== undefined && data.value !== null) {
-        // update local cache
-        try { localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify({ value: data.value, updated_at: Date.now() })); } catch {}
-        return data.value;
-      }
+    const { error } = await supabase.from('user_data').upsert(payload, { onConflict: 'key' });
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      return res.status(500).json({ error: 'db_error', details: error.message });
     }
+
+    console.log('POST /api/save ok', { key });
+    return res.json({ ok: true });
   } catch (err) {
-    // network error
+    console.error('Save error', err);
+    return res.status(500).json({ error: 'internal_error' });
   }
+});
+
+// GET /api/load?key=...
+app.get('/api/load', async (req, res) => {
+  try {
+    const key = String(req.query.key ?? '');
+    console.log('GET /api/load', { key });
+    if (!key) return res.status(400).json({ error: 'key is required' });
+
+    const { data, error } = await supabase
+      .from('user_data')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase select error:', error);
+      return res.status(500).json({ error: 'db_error', details: error.message });
+    }
+
+    console.log('GET /api/load result', { key, found: !!data });
+    return res.json({ value: data?.value ?? null });
+  } catch (err) {
+    console.error('Load error', err);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
 
   // Fallback to local cache
   try {

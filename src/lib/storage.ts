@@ -142,7 +142,12 @@ export class LocalStorageManager {
       // Process queue shortly after startup if online
       setTimeout(() => { try { this.processSyncQueue().catch(() => {}); } catch (e) {} }, 500);
       if (typeof window !== 'undefined') {
-        window.addEventListener('online', () => { try { this.processSyncQueue().catch(() => {}); this.pullFromServer().catch(() => {}); } catch (e) {} });
+        window.addEventListener('online', async () => {
+          try {
+            await this.processSyncQueue();
+            await this.pullFromServer(true);
+          } catch (e) {}
+        });
       }
     } catch (e) {
       // noop

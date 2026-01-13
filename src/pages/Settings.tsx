@@ -531,6 +531,43 @@ const SettingsPage = () => {
                     <RotateCcw className={'h-4 w-4 mr-2'} /> Recarregar do servidor
                   </Button>
                 </div>
+
+                {/* Debug: Sync panel (for testing) */}
+                <div className={'pt-4 border-t mt-4'}>
+                  <div className={'space-y-2'}>
+                    <Label>Debug de Sincronização (apenas desenvolvimento)</Label>
+                    <p className={'text-sm text-muted-foreground mb-2'}>
+                      Painel de debug para validar a fila de sincronização e testar envio/offline.
+                    </p>
+                    <div className={'flex items-center gap-2'}>
+                      <div className={'flex-1'}>
+                        <div className={'text-sm text-muted-foreground mb-2'}>Fila: <strong>{String(storage.getSyncQueue().length)}</strong></div>
+                        <div className={'flex gap-2'}>
+                          <Button onClick={() => {
+                            // Create a small debug snapshot by adding a vice (triggers save)
+                            try {
+                              storage.addVice({ name: 'DebugVice ' + Date.now(), note: 'debug', color: '#6b46c1' });
+                              toast.success('Snapshot criado e enfileirado');
+                            } catch (e) { toast.error('Falha ao criar snapshot'); }
+                          }} className={'w-full md:w-auto'}>
+                            Forçar snapshot
+                          </Button>
+
+                          <Button onClick={async () => {
+                            toast('Forçando envio...', { duration: 3000 });
+                            try {
+                              await storage.forceSyncNow();
+                              toast.success('Envio forçado concluído');
+                            } catch (e) { toast.error('Falha ao forçar envio'); }
+                          }} variant={'outline'} className={'w-full md:w-auto'}>
+                            Forçar envio agora
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
 

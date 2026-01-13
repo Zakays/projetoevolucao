@@ -22,7 +22,7 @@ plugins {
 
 def twaManifest = [
     applicationId: 'com.glowuporganizer.app',
-    hostName: 'localhost', // The domain being opened in the TWA.
+    hostName: 'projetoevolucao.vercel.app', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'GlowUp Organizer', // The application name.
     launcherName: 'GlowUp', // The name shown on the Android Launcher.
