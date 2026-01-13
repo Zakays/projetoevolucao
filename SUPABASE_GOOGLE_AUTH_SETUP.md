@@ -123,9 +123,32 @@ navigate('/login');
 ```
 
 7) Sincronização com `app_data` (RLS)
-- Já existe código no `src/lib/storage.ts` com `backupToSupabase(userId)` e `restoreFromSupabase(userId)`.
-- No `onAuthStateChange` faça:
-  - Se `session.user` presente: `await storage.restoreFromSupabase(session.user.id)` — carrega dados do usuário.
+- Já existe código no `src/lib/storage.ts` com `backupToSupabase()` e `restoreFromSupabase()` — nesta branch foram reativados e agora usam o endpoint `/api` (servidor) para persistência, e também é possível assinar atualizações em tempo real via Supabase Realtime.
+
+- Para habilitar sincronização em tempo real na app web e em apps móveis (Android):
+  - Defina as seguintes variáveis de ambiente no seu ambiente (Vite):
+
+```env
+VITE_SUPABASE_URL=https://<seu-projeto>.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_XXXX
+VITE_PERSISTENCE_BASE_URL=https://projetoevolucao.vercel.app   # opcional, útil para builds móveis
+```
+
+  - No painel Supabase, certifique-se de que a tabela `user_data` tem o Realtime habilitado (ou habilite realtime para o schema `public` / table `user_data`).
+  - O servidor que expõe `/api/save` e `/api/load` (código em `server/index.js`) deve estar implantado e configurado com as variáveis `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (essa última só no servidor). No Vercel isso fica nas Environment Variables do projeto.
+  - O frontend inicializa o cliente Supabase (`initSupabase`) automaticamente no startup se as variáveis estiverem presentes, tenta um `restoreFromSupabase()` inicial e se inscreve em atualizações em tempo real (chamando `storage.subscribeToRealtime()` internamente).
+
+- Android / Capacitor (sincronização com site `https://projetoevolucao.vercel.app`):
+  - Configure `VITE_PERSISTENCE_BASE_URL` para `https://projetoevolucao.vercel.app` antes de buildar o app móvel. Isso faz com que as chamadas a `/api/save` e `/api/load` usem a URL absoluta do site (ex.: `https://projetoevolucao.vercel.app/api/save`).
+  - Para receber updates em tempo real no app Android, inclua também `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no build (essas variáveis são embarcadas no bundle). A app irá assinar o canal realtime no Supabase e chamar `restoreFromSupabase()` quando detectar mudanças remotas.
+  - Certifique-se de que o servidor hospedado (`https://projetoevolucao.vercel.app`) esteja acessível e que o CORS nas APIs permita o domínio (o servidor atual define `Access-Control-Allow-Origin: *`).
+
+- Testes rápidos de sincronização:
+  1. Abra o site em desktop e faça uma alteração (ex.: crie/edite um hábito).
+  2. Observe que o site chama `/api/save` (ver logs do servidor), e a linha correspondente em `user_data` é atualizada.
+  3. Em outro cliente (outro browser, ou app Android apontando para `VITE_PERSISTENCE_BASE_URL`), você deverá receber um evento realtime e ver os dados serem atualizados automaticamente.
+
+- Se precisar, eu posso: implantar o `server/index.js` em Vercel (como Serverless Function) ou em outro host, validar as variáveis de ambiente na implantação e testar sincronização entre web e Android para você.
   - Se sessão removida: `storage.clearLocalUserData()`.
 
 8) Testes e execução
