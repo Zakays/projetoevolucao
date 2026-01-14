@@ -42,7 +42,8 @@ export async function loadData(key: string): Promise<any> {
       if (data && data.value !== undefined && data.value !== null) {
         // update local cache
         try { localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify({ value: data.value, updated_at: Date.now() })); } catch {}
-        return data.value;
+        // Return the remote value merged with server's updated_at so callers can compare DB timestamps
+        return { ...(data.value ?? {}), updated_at: data.updated_at ?? null };
       }
     }
   } catch (err) {

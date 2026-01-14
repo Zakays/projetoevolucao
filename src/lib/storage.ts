@@ -511,6 +511,15 @@ export class LocalStorageManager {
       // Conservative replace: if remote lastUpdated is newer, replace local
       const remoteUpdated = remote && remote.lastUpdated ? new Date(remote.lastUpdated).getTime() : (remote && remote.updated_at ? new Date(remote.updated_at).getTime() : 0);
       const localUpdated = this.data && this.data.lastUpdated ? new Date(this.data.lastUpdated).getTime() : 0;
+
+      // Debug hook: emit poll result so UI/tests can observe poll attempts
+      try {
+        try { console.debug('poll result', { key: STORAGE_KEY, remoteUpdated, localUpdated, remoteUpdatedRaw: remote.updated_at ?? remote.lastUpdated, remoteSnapshot: remote }); } catch (e) {}
+        try { window.dispatchEvent(new CustomEvent('glowup:poll-result', { detail: { key: STORAGE_KEY, remoteUpdated, localUpdated, updated: remoteUpdated > localUpdated } })); } catch (e) {}
+      } catch (e) {
+        // noop
+      }
+
       if (remoteUpdated > localUpdated) {
         this.data = { ...defaultData, ...remote, version: STORAGE_VERSION } as ExtendedAppData;
         if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
