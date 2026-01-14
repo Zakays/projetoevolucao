@@ -148,7 +148,14 @@ export class LocalStorageManager {
             await this.pullFromServer(true);
           } catch (e) {}
         });
+        // visibility change: we'll adjust polling when app goes to background/foreground
+        try {
+          document.addEventListener('visibilitychange', () => { try { this.onVisibilityChange(); } catch (e) {} });
+        } catch (e) { /* noop */ }
       }
+
+      // Initialize polling for remote changes (adaptive frequency)
+      try { this.setupPolling(); } catch (e) { /* noop */ }
     } catch (e) {
       // noop
     }
@@ -355,6 +362,132 @@ export class LocalStorageManager {
     await this.processSyncQueue();
   }
 
+  // --- Polling for remote changes (fallback when realtime not available) ---
+  private pollingIntervalMs: number = Math.max(1000, Number(import.meta.env.VITE_POLL_INTERVAL_MS || 2000));
+  private pollingTimer: ReturnType<typeof setInterval> | null = null;
+  private pollingHiddenIntervalMs = 30_000; // slower interval when page is hidden
+
+  private setupPolling(): void {
+    try {
+      // ensure we have a reasonable minimum
+      this.pollingIntervalMs = Math.max(1000, Number(import.meta.env.VITE_POLL_INTERVAL_MS || 2000));
+      // start polling behavior (only in window env)
+      if (typeof window === 'undefined') return;
+      // start when online
+      if (typeof navigator !== 'undefined' && navigator.onLine) this.startPolling();
+
+      // adjust polling when going online/offline
+      try {
+        window.addEventListener('online', () => { try { this.startPolling(); } catch (e) {} });
+        window.addEventListener('offline', () => { try { this.stopPolling(); } catch (e) {} });
+      } catch (e) { /* noop */ }
+    } catch (e) {
+      // noop
+    }
+  }
+
+  // backoff/failure tracking
+  private consecutivePollFailures = 0;
+  private maxFailuresBeforeBackoff = 3;
+  private backoffMultiplier = 2;
+
+  public startPolling(): void {
+    try {
+      if (this.pollingTimer) {
+        clearTimeout(this.pollingTimer as any);
+        this.pollingTimer = null;
+      }
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+      const interval = (typeof document !== 'undefined' && document.hidden) ? this.pollingHiddenIntervalMs : this.pollingIntervalMs;
+
+      // run an immediate pull so UI gets up-to-date quickly
+      (async () => {
+        try {
+          if (typeof navigator === 'undefined' || navigator.onLine) {
+            const ok = await this.pullFromServer(false);
+            if (ok) {
+              this.consecutivePollFailures = 0;
+            } else {
+              this.consecutivePollFailures++;
+            }
+          }
+        } catch (e) {
+          this.consecutivePollFailures++;
+        }
+      })();
+
+      // polling loop using setTimeout to allow dynamic intervals/backoff
+      const pollLoop = async () => {
+        try {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            // schedule retry later
+            this.pollingTimer = setTimeout(pollLoop, Math.max(1000, this.pollingHiddenIntervalMs));
+            return;
+          }
+
+          // apply lightweight backoff if failures accumulate
+          let effectiveInterval = interval;
+          if (this.consecutivePollFailures >= this.maxFailuresBeforeBackoff) {
+            effectiveInterval = Math.min(60_000, interval * Math.pow(this.backoffMultiplier, this.consecutivePollFailures - this.maxFailuresBeforeBackoff + 1));
+          }
+
+          const ok = await this.pullFromServer(false);
+          if (ok) {
+            this.consecutivePollFailures = 0;
+          } else {
+            this.consecutivePollFailures++;
+          }
+
+          this.pollingTimer = setTimeout(pollLoop, Math.max(1000, effectiveInterval));
+        } catch (e) {
+          this.consecutivePollFailures++;
+          this.pollingTimer = setTimeout(pollLoop, Math.max(1000, interval * this.backoffMultiplier));
+        }
+      };
+
+      // start loop
+      this.pollingTimer = setTimeout(pollLoop, Math.max(1000, interval));
+    } catch (e) {
+      // noop
+    }
+  }
+
+  public stopPolling(): void {
+    try {
+      if (this.pollingTimer) {
+        clearTimeout(this.pollingTimer as any);
+        this.pollingTimer = null;
+      }
+    } catch (e) { /* noop */ }
+  }
+
+  public setPollIntervalMs(ms: number): void {
+    this.pollingIntervalMs = Math.max(1000, Math.floor(ms));
+    // restart with new interval
+    try { this.startPolling(); } catch (e) { /* noop */ }
+  }
+
+  private onVisibilityChange(): void {
+    try {
+      // restart polling with different interval when hidden/visible
+      if (typeof document === 'undefined') return;
+      if (document.hidden) {
+        // slow down
+        this.stopPolling();
+        this.pollingTimer = setInterval(async () => {
+          try { if (typeof navigator === 'undefined' || !navigator.onLine) return; await this.pullFromServer(false); } catch (e) {}
+        }, this.pollingHiddenIntervalMs);
+      } else {
+        // resume default frequency
+        this.startPolling();
+      }
+    } catch (e) {
+      // noop
+    }
+  }
+
   /**
    * Pull data from remote storage and merge/replace local data.
    * If `force` is true, remote data replaces local data unconditionally.
@@ -371,17 +504,19 @@ export class LocalStorageManager {
         if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
         if (remote.records) this.data.records = { ...defaultRecordsData, ...remote.records };
         this.saveData();
+        try { window.dispatchEvent(new CustomEvent('glowup:remote-updated', { detail: { force: true, updatedAt: remote.lastUpdated ?? remote.updated_at } })); } catch (e) { }
         return true;
       }
 
       // Conservative replace: if remote lastUpdated is newer, replace local
-      const remoteUpdated = remote && remote.lastUpdated ? new Date(remote.lastUpdated).getTime() : 0;
+      const remoteUpdated = remote && remote.lastUpdated ? new Date(remote.lastUpdated).getTime() : (remote && remote.updated_at ? new Date(remote.updated_at).getTime() : 0);
       const localUpdated = this.data && this.data.lastUpdated ? new Date(this.data.lastUpdated).getTime() : 0;
       if (remoteUpdated > localUpdated) {
         this.data = { ...defaultData, ...remote, version: STORAGE_VERSION } as ExtendedAppData;
         if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
         if (remote.records) this.data.records = { ...defaultRecordsData, ...remote.records };
         this.saveData();
+        try { window.dispatchEvent(new CustomEvent('glowup:remote-updated', { detail: { force: false, updatedAt: remote.lastUpdated ?? remote.updated_at } })); } catch (e) { }
         return true;
       }
 
