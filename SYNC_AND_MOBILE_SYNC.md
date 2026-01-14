@@ -30,6 +30,7 @@ Frontend (Vite):
 - `VITE_SUPABASE_URL` — Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` — Supabase anon key (safe for client use)
 - `VITE_PERSISTENCE_BASE_URL` — Optional; set to `https://projetoevolucao.vercel.app` for mobile builds so the app calls the hosted server API
+- `VITE_MOBILE_POLL_MS` — Optional; mobile polling interval in milliseconds (defaults to `10000` = 10s). The app will also attempt an immediate sync on item creation and when returning to foreground, ensuring updates are sent within ~30s while the app is active.
 
 Server (Host):
 

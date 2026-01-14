@@ -37,6 +37,30 @@ async function bootstrap() {
       try { await storage.restoreFromSupabase(); } catch (e) { /* noop */ }
       // subscribe to realtime updates
       try { (storage as any).subscribeToRealtime(); } catch (e) { /* noop */ }
+
+      // If running as a mobile app (Capacitor), adjust polling and lifecycle hooks
+      try {
+        // dynamic import so bundlers don't require Capacitor in web builds
+        const cap = await import('@capacitor/app');
+        const capApp = (cap as any).App;
+        if (capApp && typeof capApp.addListener === 'function') {
+          // set a reasonable mobile poll (10s default or override with VITE_MOBILE_POLL_MS)
+          const mobilePoll = Number(import.meta.env.VITE_MOBILE_POLL_MS || 10000);
+          try { storage.setPollIntervalMs(mobilePoll); } catch (e) {}
+          try { storage.startPolling(); } catch (e) {}
+
+          capApp.addListener('appStateChange', (state: any) => {
+            try {
+              if (state && state.isActive) {
+                try { storage.startPolling(); } catch (e) {}
+                try { storage.forceSyncNow().catch(() => {}); } catch (e) {}
+              } else {
+                try { storage.stopPolling(); } catch (e) {}
+              }
+            } catch (e) { /* noop */ }
+          });
+        }
+      } catch (e) { /* noop - Capacitor not present */ }
     }
   } catch (e) {
     // ignore failures during init

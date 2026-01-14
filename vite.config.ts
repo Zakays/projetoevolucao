@@ -277,7 +277,8 @@ export default defineConfig(({ mode }) => {
     ].filter(Boolean),
     build: {
       rollupOptions: {
-        external: ['workbox-window']
+        // Prevent bundlers from trying to resolve optional native modules used only in mobile builds
+        external: ['workbox-window', '@capacitor/app']
       }
     },
     resolve: {

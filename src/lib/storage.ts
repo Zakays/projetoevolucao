@@ -909,6 +909,9 @@ export class LocalStorageManager {
     
     this.data.habits.push(newHabit);
     this.saveData();
+    // Attempt immediate sync (non-blocking) so mobile clients send data quickly
+    try { this.forceSyncNow().catch(() => {}); } catch (e) {}
+    try { this.startPolling(); } catch (e) {}
     return newHabit;
   }
 
@@ -918,6 +921,7 @@ export class LocalStorageManager {
     
     this.data.habits[index] = { ...this.data.habits[index], ...updates };
     this.saveData();
+    try { this.forceSyncNow().catch(() => {}); } catch (e) {}
     return true;
   }
 
@@ -929,6 +933,7 @@ export class LocalStorageManager {
     // Remover completions relacionados
     this.data.habitCompletions = this.data.habitCompletions.filter(c => c.habitId !== id);
     this.saveData();
+    try { this.forceSyncNow().catch(() => {}); } catch (e) {}
     return true;
   }
 
@@ -971,6 +976,7 @@ export class LocalStorageManager {
     // Atualizar streak
     this.updateHabitStreak(habitId);
     this.saveData();
+    try { this.forceSyncNow().catch(() => {}); } catch (e) {}
     return true;
   }
 
