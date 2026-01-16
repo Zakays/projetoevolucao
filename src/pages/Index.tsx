@@ -27,6 +27,125 @@ import {
 import AIChat from '@/components/AIChat';
 
 const Index = () => {
+  // Debug: mostrar variáveis de ambiente
+  const debugInfo = {
+    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    VITE_PERSISTENCE_BASE_URL: import.meta.env.VITE_PERSISTENCE_BASE_URL,
+    VITE_MOBILE_POLL_MS: import.meta.env.VITE_MOBILE_POLL_MS,
+    NODE_ENV: import.meta.env.NODE_ENV,
+    MODE: import.meta.env.MODE
+  };
+
+  // Estado para mostrar logs de sincronização
+  const [syncLogs, setSyncLogs] = useState<string[]>([]);
+  const [isTestingSync, setIsTestingSync] = useState(false);
+
+  const addLog = (message: string) => {
+    setSyncLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+
+  const clearLogs = () => {
+    setSyncLogs([]);
+  };
+
+  const testSync = async () => {
+    setIsTestingSync(true);
+    addLog('🧪 Iniciando teste de sincronização...');
+
+    try {
+      // Primeiro testar conectividade básica com a internet
+      addLog('🌐 Testando conectividade básica...');
+      try {
+        const response = await fetch('https://httpbin.org/get', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        addLog(`🌐 Internet: ${response.status} ${response.statusText}`);
+      } catch (connError) {
+        addLog(`🌐 Erro de internet: ${connError.message}`);
+        addLog('⚠️  Dispositivo pode não ter conexão com a internet');
+      }
+
+      // Testar conectividade com o servidor específico
+      addLog('🌐 Testando conectividade com servidor...');
+      try {
+        const baseUrl = import.meta.env.VITE_PERSISTENCE_BASE_URL || 'http://localhost:3001';
+        addLog(`🌐 URL do servidor: ${baseUrl}`);
+
+        const response = await fetch(`${baseUrl}/api/load?key=test`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        addLog(`🌐 Servidor: ${response.status} ${response.statusText}`);
+      } catch (connError) {
+        addLog(`🌐 Erro de conectividade: ${connError.message}`);
+        addLog('💡 Possíveis causas:');
+        addLog('   - Servidor não está rodando');
+        addLog('   - Problemas de CORS');
+        addLog('   - Firewall bloqueando');
+        addLog('   - Endpoint não existe');
+        addLog('💡 Soluções sugeridas:');
+        addLog('   1. Execute: npm run start:server');
+        addLog('   2. Use servidor local: http://localhost:3000');
+        addLog('   3. Verifique se o servidor Vercel está ativo');
+      }
+
+      // Testar backup
+      addLog('📤 Testando backup...');
+      try {
+        const backupResult = await (storage as any).backupToSupabase();
+        addLog(`📤 Backup: ${backupResult ? '✅ Sucesso' : '❌ Falhou'}`);
+      } catch (backupError) {
+        addLog(`📤 Backup erro: ${backupError.message}`);
+        if (backupError.stack) {
+          addLog(`📤 Stack: ${backupError.stack.split('\n')[0]}`);
+        }
+      }
+
+      // Aguardar um pouco
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Testar restore
+      addLog('📥 Testando restore...');
+      try {
+        const restoreResult = await (storage as any).restoreFromSupabase();
+        addLog(`📥 Restore: ${restoreResult ? '✅ Sucesso' : '❌ Falhou (dados locais mais recentes)'}`);
+      } catch (restoreError) {
+        addLog(`📥 Restore erro: ${restoreError.message}`);
+        if (restoreError.stack) {
+          addLog(`📥 Stack: ${restoreError.stack.split('\n')[0]}`);
+        }
+        // Tentar obter mais detalhes
+        try {
+          const remote = await (storage as any).loadDataRemote((storage as any).STORAGE_KEY);
+          addLog(`📥 Dados remotos: ${remote ? 'Encontrados' : 'Não encontrados'}`);
+          if (remote && remote.updated_at) {
+            addLog(`📥 Timestamp remoto: ${remote.updated_at}`);
+          }
+        } catch (remoteError) {
+          addLog(`📥 Erro ao verificar dados remotos: ${remoteError.message}`);
+        }
+      }
+
+      // Verificar queue
+      try {
+        const queue = (storage as any).getSyncQueue();
+        addLog(`📋 Queue: ${queue ? queue.length : 0} items`);
+      } catch (queueError) {
+        addLog(`📋 Queue erro: ${queueError.message}`);
+      }
+
+    } catch (error) {
+      addLog(`❌ Erro geral: ${error.message}`);
+      if (error.stack) {
+        addLog(`❌ Stack: ${error.stack.split('\n')[0]}`);
+      }
+    }
+
+    setIsTestingSync(false);
+  };
+
   const [todayHabits, setTodayHabits] = useState<Habit[]>([]);
   const [habitCompletions, setHabitCompletions] = useState<HabitCompletion[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
@@ -185,6 +304,57 @@ const Index = () => {
             Dashboard Diário
           </h1>
         </div>
+
+        {/* Debug Info - Aparece apenas quando modo de teste está ativo */}
+        {settings?.testsEnabled && (
+          <Card className="bg-red-50 border-red-200">
+            <CardHeader>
+              <CardTitle className="text-red-800">🔧 Debug - Variáveis de Ambiente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm font-mono">
+                {Object.entries(debugInfo).map(([key, value]) => (
+                  <div key={key} className="flex justify-between">
+                    <span className="font-semibold">{key}:</span>
+                    <span className={value ? 'text-green-600' : 'text-red-600'}>
+                      {value || '❌ NÃO DEFINIDA'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Botão de teste de sincronização */}
+              <div className="mt-4 pt-4 border-t border-red-200">
+                <div className="flex gap-2">
+                  <Button
+                    onClick={testSync}
+                    disabled={isTestingSync}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                  >
+                    {isTestingSync ? '🧪 Testando...' : '🧪 Testar Sincronização'}
+                  </Button>
+                  <Button
+                    onClick={clearLogs}
+                    variant="outline"
+                    className="px-4 bg-gray-600 hover:bg-gray-700 text-white border-gray-500"
+                  >
+                    🗑️ Limpar
+                  </Button>
+                </div>
+
+                {/* Logs de sincronização */}
+                {syncLogs.length > 0 && (
+                  <div className="mt-3 p-3 bg-black text-green-400 rounded text-xs font-mono max-h-64 overflow-y-auto">
+                    <div className="font-bold mb-2">📋 Logs de Sincronização ({syncLogs.length} mensagens):</div>
+                    {syncLogs.map((log, index) => (
+                      <div key={index} className="mb-1">{log}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Motivational Quote - Full Width */}
         <Card className="gradient-glow border-0">

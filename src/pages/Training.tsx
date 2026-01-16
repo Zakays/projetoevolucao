@@ -24,8 +24,28 @@ import {
   Pause,
   RotateCcw,
   Target,
-  Activity
+  Activity,
+  GripVertical
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface WorkoutFormData {
   type: 'treino' | 'descanso' | 'recuperacao';
@@ -55,6 +75,146 @@ const defaultSet: Set = {
   rest: 60,
 };
 
+interface SortableWorkoutItemProps {
+  workout: WorkoutEntry;
+  onEdit: (workout: WorkoutEntry) => void;
+  onDelete: (id: string) => void;
+  getWorkoutTypeColor: (type: string) => string;
+  getWorkoutTypeLabel: (type: string) => string;
+  getTotalReps: (exercise: Exercise) => number;
+}
+
+const SortableWorkoutItem = ({
+  workout,
+  onEdit,
+  onDelete,
+  getWorkoutTypeColor,
+  getWorkoutTypeLabel,
+  getTotalReps
+}: SortableWorkoutItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: workout.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} className={'hover:shadow-md transition-shadow'}>
+      <CardContent className={'p-4'}>
+        <div className={'flex items-start justify-between'}>
+          <div className={'flex items-start space-x-3 flex-1'}>
+            {/* Handle para drag */}
+            <div
+              {...attributes}
+              {...listeners}
+              className={'cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded mt-1'}
+            >
+              <GripVertical className={'h-5 w-5 text-gray-400'} />
+            </div>
+
+            <div className={'flex-1'}>
+              <div className={'flex items-center space-x-3 mb-2'}>
+                <h3 className={'font-semibold'}>
+                  {new Date(workout.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                </h3>
+                <Badge
+                  variant={'outline'}
+                  className={`${getWorkoutTypeColor(workout.type)} text-white border-0`}
+                >
+                  {getWorkoutTypeLabel(workout.type)}
+                </Badge>
+              </div>
+
+              <div className={'grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground mb-3'}>
+                {workout.duration && (
+                  <div className={'flex items-center space-x-2'}>
+                    <Clock className={'h-4 w-4'} />
+                    <span>{workout.duration} min</span>
+                  </div>
+                )}
+                <div className={'flex items-center space-x-2'}>
+                  <Dumbbell className={'h-4 w-4'} />
+                  <span>{workout.exercises.length} exercicios</span>
+                </div>
+                <div className={'flex items-center space-x-2'}>
+                  <Target className={'h-4 w-4'} />
+                  <span>
+                    {workout.exercises.reduce((total, ex) => total + ex.sets.length, 0)} series
+                  </span>
+                </div>
+              </div>
+
+              {workout.exercises.length > 0 && (
+                <div className={'mb-3'}>
+                  <p className={'text-sm font-medium mb-1'}>Exercicios:</p>
+                  <div className={'flex flex-wrap gap-1'}>
+                    {workout.exercises.map((exercise, index) => (
+                      <Badge key={index} variant={'secondary'} className={'text-xs'} data-testid={`exercise-badge-${workout.id}-${index}`}>
+                        {exercise.name}{getTotalReps(exercise) ? ` (${getTotalReps(exercise)})` : ''}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {workout.notes && (
+                <p className={'text-sm text-muted-foreground p-3 bg-muted/50 rounded-lg'}>
+                  {workout.notes}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className={'flex items-center space-x-2 ml-4'}>
+            <Button
+              variant={'outline'}
+              size={'icon'}
+              onClick={() => onEdit(workout)}
+            >
+              <Edit className={'h-4 w-4'} />
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant={'outline'} size={'icon'} className={'text-destructive hover:text-destructive'}>
+                  <Trash2 className={'h-4 w-4'} />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Treino</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir este treino?
+                    Esta acao nao pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDelete(workout.id)}
+                    className={'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
+                  >
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const Training = () => {
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -72,6 +232,31 @@ const Training = () => {
   const loadWorkouts = () => {
     const data = storage.getData();
     setWorkouts(data.workouts || []);
+  };
+
+  // Configuração do drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = workouts.findIndex((workout) => workout.id === active.id);
+      const newIndex = workouts.findIndex((workout) => workout.id === over.id);
+
+      const reorderedWorkouts = arrayMove(workouts, oldIndex, newIndex);
+
+      // Atualizar a ordem no storage
+      storage.updateWorkouts(reorderedWorkouts);
+      setWorkouts(reorderedWorkouts);
+
+      toast.success('Ordem dos treinos atualizada');
+    }
   };
 
   const saveWorkout = (workout: Omit<WorkoutEntry, 'id'>) => {
@@ -544,103 +729,30 @@ const Training = () => {
                 <p className={'text-sm'}>Comece registrando seu primeiro treino!</p>
               </div>
             ) : (
-              <div className={'space-y-4'}>
-                {sortedWorkouts.map((workout) => (
-                  <Card key={workout.id} className={'hover:shadow-md transition-shadow'}>
-                    <CardContent className={'p-4'}>
-                      <div className={'flex items-start justify-between'}>
-                        <div className={'flex-1'}>
-                          <div className={'flex items-center space-x-3 mb-2'}>
-                            <h3 className={'font-semibold'}>
-                              {new Date(workout.date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                            </h3>
-                            <Badge 
-                              variant={'outline'} 
-                              className={`${getWorkoutTypeColor(workout.type)} text-white border-0`}
-                            >
-                              {getWorkoutTypeLabel(workout.type)}
-                            </Badge>
-                          </div>
-                          
-                          <div className={'grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground mb-3'}>
-                            {workout.duration && (
-                              <div className={'flex items-center space-x-2'}>
-                                <Clock className={'h-4 w-4'} />
-                                <span>{workout.duration} min</span>
-                              </div>
-                            )}
-                            <div className={'flex items-center space-x-2'}>
-                              <Dumbbell className={'h-4 w-4'} />
-                              <span>{workout.exercises.length} exercicios</span>
-                            </div>
-                            <div className={'flex items-center space-x-2'}>
-                              <Target className={'h-4 w-4'} />
-                              <span>
-                                {workout.exercises.reduce((total, ex) => total + ex.sets.length, 0)} series
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {workout.exercises.length > 0 && (
-                            <div className={'mb-3'}>
-                              <p className={'text-sm font-medium mb-1'}>Exercicios:</p>
-                              <div className={'flex flex-wrap gap-1'}>
-                                {workout.exercises.map((exercise, index) => (
-                                  <Badge key={index} variant={'secondary'} className={'text-xs'} data-testid={`exercise-badge-${workout.id}-${index}`}>
-                                    {exercise.name}{getTotalReps(exercise) ? ` (${getTotalReps(exercise)})` : ''}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {workout.notes && (
-                            <p className={'text-sm text-muted-foreground p-3 bg-muted/50 rounded-lg'}>
-                              {workout.notes}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className={'flex items-center space-x-2 ml-4'}>
-                          <Button
-                            variant={'outline'}
-                            size={'icon'}
-                            onClick={() => handleEdit(workout)}
-                          >
-                            <Edit className={'h-4 w-4'} />
-                          </Button>
-                          
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant={'outline'} size={'icon'} className={'text-destructive hover:text-destructive'}>
-                                <Trash2 className={'h-4 w-4'} />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir Treino</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir este treino? 
-                                  Esta acao nao pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction 
-                                  onClick={() => handleDelete(workout.id)}
-                                  className={'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
-                                >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={sortedWorkouts.map(w => w.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className={'space-y-4'}>
+                    {sortedWorkouts.map((workout) => (
+                      <SortableWorkoutItem
+                        key={workout.id}
+                        workout={workout}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        getWorkoutTypeColor={getWorkoutTypeColor}
+                        getWorkoutTypeLabel={getWorkoutTypeLabel}
+                        getTotalReps={getTotalReps}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
           </CardContent>
         </Card>

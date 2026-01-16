@@ -7,12 +7,137 @@ import { storage } from '@/lib/storage';
 import ViceItem from '@/components/ViceItem';
 import { Vice } from '@/types';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical, Trash2, Calendar as CalendarIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import ViceCalendar from '@/components/ViceCalendar';
+
+interface SortableViceItemProps {
+  vice: Vice;
+  onDeleted?: (id: string) => void;
+}
+
+const SortableViceItem = ({ vice, onDeleted }: SortableViceItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: vice.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const handleDelete = () => {
+    if (confirm(`Excluir vício "${vice.name}"?`)) {
+      storage.deleteVice(vice.id);
+      onDeleted?.(vice.id);
+    }
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} className={'mb-3'}>
+      <CardHeader>
+        <CardTitle className={'flex items-center justify-between'}>
+          <div className={'flex items-center space-x-3'}>
+            {/* Handle para drag */}
+            <div
+              {...attributes}
+              {...listeners}
+              className={'cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded'}
+            >
+              <GripVertical className={'h-5 w-5 text-gray-400'} />
+            </div>
+
+            <div style={{ background: vice.color || 'var(--primary)' }} className={'w-8 h-8 rounded-md flex items-center justify-center text-white font-bold'}>
+              {vice.name[0]?.toUpperCase()}
+            </div>
+            <div>
+              <div className={'font-medium'}>{vice.name}</div>
+              {vice.note && <div className={'text-sm text-muted-foreground'}>{vice.note}</div>}
+            </div>
+          </div>
+
+          <div className={'flex items-center space-x-2'}>
+            <div className={'text-sm text-muted-foreground mr-2'}>Streak: <strong>{vice.streak || 0}</strong></div>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size={'sm'} variant={'ghost'}><CalendarIcon className={'h-4 w-4'} /> Ver calendário</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Calendário — {vice.name}</DialogTitle>
+                </DialogHeader>
+                <div className={'mt-2'}>
+                  <ViceCalendar viceId={vice.id} />
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Button size={'sm'} variant={'ghost'} onClick={handleDelete}><Trash2 className={'h-4 w-4 text-destructive-foreground'} /></Button>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+      </CardContent>
+    </Card>
+  );
+};
 
 export default function VicesPage() {
   const [vices, setVices] = useState<Vice[]>([]);
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [color, setColor] = useState('#6b46c1');
+
+  // Configuração do drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = vices.findIndex((vice) => vice.id === active.id);
+      const newIndex = vices.findIndex((vice) => vice.id === over.id);
+
+      const reorderedVices = arrayMove(vices, oldIndex, newIndex);
+
+      // Atualizar a ordem no storage
+      storage.updateVices(reorderedVices);
+      setVices(reorderedVices);
+
+      toast.success('Ordem dos vícios atualizada');
+    }
+  };
 
   useEffect(() => {
     setVices(storage.getVices());
@@ -66,9 +191,22 @@ export default function VicesPage() {
             <div className={'text-muted-foreground'}>Nenhum vício adicionado ainda.</div>
           )}
 
-          {vices.map(v => (
-            <ViceItem key={v.id} vice={v} onDeleted={() => refresh()} />
-          ))}
+          {vices.length > 0 && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={vices.map(v => v.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {vices.map(v => (
+                  <SortableViceItem key={v.id} vice={v} onDeleted={() => refresh()} />
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
         </div>
       </div>
     </Layout>

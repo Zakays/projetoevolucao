@@ -583,6 +583,12 @@ export class LocalStorageManager {
     this.saveData();
   }
 
+  public updateWorkouts(workouts: WorkoutEntry[]): void {
+    this.data.workouts = [...workouts];
+    this.saveData();
+    try { this.forceSyncNow().catch(() => {}); } catch (e) {}
+  }
+
   // Vices: manage vices and per-day completions
   public getVices(): Vice[] {
     return this.data.vices ? [...this.data.vices] : [];
@@ -608,6 +614,12 @@ export class LocalStorageManager {
     this.data.vices[idx] = { ...this.data.vices[idx], ...updates };
     this.saveData();
     return true;
+  }
+
+  public updateVices(vices: Vice[]): void {
+    this.data.vices = [...vices];
+    this.saveData();
+    try { this.forceSyncNow().catch(() => {}); } catch (e) {}
   }
 
   public deleteVice(id: string): boolean {
@@ -925,6 +937,12 @@ export class LocalStorageManager {
     return true;
   }
 
+  public updateHabits(habits: Habit[]): void {
+    this.data.habits = [...habits];
+    this.saveData();
+    try { this.forceSyncNow().catch(() => {}); } catch (e) {}
+  }
+
   public deleteHabit(id: string): boolean {
     const index = this.data.habits.findIndex(h => h.id === id);
     if (index === -1) return false;
@@ -1112,21 +1130,30 @@ export class LocalStorageManager {
   public async restoreFromSupabase(_userId?: string): Promise<boolean> {
     try {
       const remote = await loadDataRemote(STORAGE_KEY);
-      if (!remote || typeof remote !== 'object') return false;
+
+      if (!remote || typeof remote !== 'object') {
+        return false;
+      }
 
       // Use conservative merge: replace if remote is newer
-      const remoteUpdated = remote && remote.lastUpdated ? new Date(remote.lastUpdated).getTime() : 0;
+      const remoteUpdated = remote && remote.updated_at ? new Date(remote.updated_at).getTime() : 0;
       const localUpdated = this.data && this.data.lastUpdated ? new Date(this.data.lastUpdated).getTime() : 0;
+
       if (remoteUpdated > localUpdated) {
-        this.data = { ...defaultData, ...remote, version: STORAGE_VERSION } as ExtendedAppData;
-        if (remote.study) this.data.study = { ...defaultStudyData, ...remote.study };
-        if (remote.records) this.data.records = { ...defaultRecordsData, ...remote.records };
+        // Remove updated_at from remote data before merging
+        const { updated_at, ...remoteData } = remote;
+
+        this.data = { ...defaultData, ...remoteData, version: STORAGE_VERSION } as ExtendedAppData;
+        if (remoteData.study) this.data.study = { ...defaultStudyData, ...remoteData.study };
+        if (remoteData.records) this.data.records = { ...defaultRecordsData, ...remoteData.records };
+
         this.saveData();
         return true;
       }
+
       return false;
     } catch (err) {
-      console.error('restoreFromSupabase failed', err);
+      console.error('restoreFromSupabase failed:', err);
       return false;
     }
   }

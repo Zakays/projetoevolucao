@@ -16,18 +16,38 @@ import { useNavigate } from 'react-router-dom';
 import { Habit, HabitCompletion } from '@/types';
 import { toast } from 'sonner';
 import { playClick, playSuccess } from '@/lib/sound';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Clock, 
-  Flame, 
-  Target, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Clock,
+  Flame,
+  Target,
   Calendar,
   CheckCircle2,
   Circle,
-  Star
+  Star,
+  GripVertical
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Dom' },
@@ -67,6 +87,162 @@ const defaultFormData: HabitFormData = {
   additionalInfo: '',
 };
 
+interface SortableHabitItemProps {
+  habit: Habit;
+  categoryInfo: { label: string; color: string };
+  completion: HabitCompletion | undefined;
+  isCompleted: boolean;
+  showCheckbox: boolean;
+  onToggle: (habitId: string) => void;
+  onEdit: (habit: Habit) => void;
+  onDelete: (habitId: string) => void;
+  getDaysOfWeekText: (days: number[]) => string;
+}
+
+const SortableHabitItem = ({
+  habit,
+  categoryInfo,
+  completion,
+  isCompleted,
+  showCheckbox,
+  onToggle,
+  onEdit,
+  onDelete,
+  getDaysOfWeekText
+}: SortableHabitItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: habit.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={'hover:shadow-md transition-shadow'}
+    >
+      <CardContent className={'p-6'}>
+        <div className={'flex items-start justify-between'}>
+          <div className={'flex items-start space-x-3 flex-1'}>
+            {/* Checkbox apenas para hábitos de hoje */}
+            {showCheckbox && (
+              <Checkbox
+                checked={isCompleted}
+                onCheckedChange={() => onToggle(habit.id)}
+                className={'data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 mt-1'}
+              />
+            )}
+
+            <div className={'flex-1'}>
+              <div className={'flex items-center space-x-3 mb-2'}>
+                <h3 className={`text-lg font-semibold ${isCompleted && showCheckbox ? 'line-through text-muted-foreground' : ''}`}>
+                  {habit.name}
+                </h3>
+                <Badge
+                  variant={'outline'}
+                  className={`${categoryInfo.color} text-white border-0`}
+                >
+                  {categoryInfo.label}
+                </Badge>
+                {habit.isEssential && (
+                  <Badge variant={'destructive'} className={'text-xs'}>
+                    <Star className={'h-3 w-3 mr-1'} />
+                    Essencial
+                  </Badge>
+                )}
+              </div>
+
+              <div className={'grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground'}>
+                <div className={'flex items-center space-x-2'}>
+                  <Calendar className={'h-4 w-4'} />
+                  <span>{getDaysOfWeekText(habit.daysOfWeek)}</span>
+                </div>
+
+                {habit.time && (
+                  <div className={'flex items-center space-x-2'}>
+                    <Clock className={'h-4 w-4'} />
+                    <span>{habit.time}</span>
+                  </div>
+                )}
+
+                <div className={'flex items-center space-x-2'}>
+                  <Flame className={'h-4 w-4'} />
+                  <span>{completion?.streak || 0} dias</span>
+                </div>
+              </div>
+
+              {habit.additionalInfo && (
+                <p className={'text-sm text-muted-foreground mt-2'}>
+                  {habit.additionalInfo}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className={'flex items-center space-x-2 ml-4'}>
+            {/* Handle para drag */}
+            <div
+              {...attributes}
+              {...listeners}
+              className={'cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded'}
+            >
+              <GripVertical className={'h-5 w-5 text-gray-400'} />
+            </div>
+
+            <Button
+              variant={'ghost'}
+              size={'sm'}
+              onClick={() => onEdit(habit)}
+              className={'text-blue-600 hover:text-blue-800 hover:bg-blue-50'}
+            >
+              <Edit className={'h-4 w-4'} />
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant={'ghost'}
+                  size={'sm'}
+                  className={'text-red-600 hover:text-red-800 hover:bg-red-50'}
+                >
+                  <Trash2 className={'h-4 w-4'} />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Hábito</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir o hábito "{habit.name}"? Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDelete(habit.id)}
+                    className={'bg-red-600 hover:bg-red-700'}
+                  >
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const Habits = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitCompletions, setHabitCompletions] = useState<HabitCompletion[]>([]);
@@ -88,6 +264,31 @@ const Habits = () => {
   const loadHabitCompletions = () => {
     const completions = storage.getHabitCompletions();
     setHabitCompletions(completions);
+  };
+
+  // Configuração do drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = habits.findIndex((habit) => habit.id === active.id);
+      const newIndex = habits.findIndex((habit) => habit.id === over.id);
+
+      const reorderedHabits = arrayMove(habits, oldIndex, newIndex);
+
+      // Atualizar a ordem no storage
+      storage.updateHabits(reorderedHabits);
+      setHabits(reorderedHabits);
+
+      toast.success('Ordem dos hábitos atualizada');
+    }
   };
 
   const navigate = useNavigate();
@@ -446,118 +647,38 @@ const Habits = () => {
               </CardContent>
             </Card>
           ) : (
-            filteredHabits.map((habit) => {
-              const categoryInfo = getCategoryInfo(habit.category);
-              const completion = getHabitCompletion(habit.id);
-              const isCompleted = completion?.status === 'completed';
-              const showCheckbox = selectedCategory === 'today' || storage.getTodayHabits().some(h => h.id === habit.id);
-              
-              return (
-                <Card key={habit.id} className={'hover:shadow-md transition-shadow'}>
-                  <CardContent className={'p-6'}>
-                    <div className={'flex items-start justify-between'}>
-                      <div className={'flex items-start space-x-3 flex-1'}>
-                        {/* Checkbox apenas para hábitos de hoje */}
-                        {showCheckbox && (
-                          <Checkbox
-                            checked={isCompleted}
-                            onCheckedChange={() => toggleHabit(habit.id)}
-                            className={'data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 mt-1'}
-                          />
-                        )}
-                        
-                        <div className={'flex-1'}>
-                          <div className={'flex items-center space-x-3 mb-2'}>
-                            <h3 className={`text-lg font-semibold ${isCompleted && showCheckbox ? 'line-through text-muted-foreground' : ''}`}>
-                              {habit.name}
-                            </h3>
-                            <Badge 
-                              variant={'outline'} 
-                              className={`${categoryInfo.color} text-white border-0`}
-                            >
-                              {categoryInfo.label}
-                            </Badge>
-                            {habit.isEssential && (
-                              <Badge variant={'destructive'} className={'text-xs'}>
-                                <Star className={'h-3 w-3 mr-1'} />
-                                Essencial
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <div className={'grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground'}>
-                            <div className={'flex items-center space-x-2'}>
-                              <Calendar className={'h-4 w-4'} />
-                              <span>{getDaysOfWeekText(habit.daysOfWeek)}</span>
-                            </div>
-                            
-                            {habit.time && (
-                              <div className={'flex items-center space-x-2'}>
-                                <Clock className={'h-4 w-4'} />
-                                <span>{habit.time}</span>
-                              </div>
-                            )}
-                            
-                            <div className={'flex items-center space-x-4'}>
-                              <div className={'flex items-center space-x-1'}>
-                                <Flame className={'h-4 w-4'} />
-                                <span>{habit.streak} dias</span>
-                              </div>
-                              <div className={'flex items-center space-x-1'}>
-                                <Target className={'h-4 w-4'} />
-                                <span>{habit.weight} pts</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {habit.additionalInfo && (
-                            <p className={'text-sm text-muted-foreground mt-3 p-3 bg-muted/50 rounded-lg'}>
-                              {habit.additionalInfo}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className={'flex items-center space-x-2 ml-4'}>
-                        <Button
-                          variant={'outline'}
-                          size={'icon'}
-                          onClick={() => handleEdit(habit)}
-                        >
-                          <Edit className={'h-4 w-4'} />
-                        </Button>
-                        
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant={'outline'} size={'icon'} className={'text-destructive hover:text-destructive'}>
-                              <Trash2 className={'h-4 w-4'} />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir Hábito</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir o hábito "{habit.name}"? 
-                                Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDelete(habit.id)}
-                                className={'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={filteredHabits.map(h => h.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {filteredHabits.map((habit) => {
+                  const categoryInfo = getCategoryInfo(habit.category);
+                  const completion = getHabitCompletion(habit.id);
+                  const isCompleted = completion?.status === 'completed';
+                  const showCheckbox = selectedCategory === 'today' || storage.getTodayHabits().some(h => h.id === habit.id);
+
+                  return (
+                    <SortableHabitItem
+                      key={habit.id}
+                      habit={habit}
+                      categoryInfo={categoryInfo}
+                      completion={completion}
+                      isCompleted={isCompleted}
+                      showCheckbox={showCheckbox}
+                      onToggle={toggleHabit}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      getDaysOfWeekText={getDaysOfWeekText}
+                    />
+                  );
+                })}
+              </SortableContext>
+            </DndContext>
           )}
         </div>
       </div>

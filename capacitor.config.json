@@ -2,5 +2,11 @@
   "appId": "com.glowuporganizer.app",
   "appName": "GlowUp Organizer",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": true,
+  "server": {
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
 }
